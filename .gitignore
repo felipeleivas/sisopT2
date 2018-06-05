@@ -1,0 +1,12 @@
+#Exclude everything
+/*
+!/bin
+!/exemplo
+!/testes
+/testes/build
+!/include
+!/lib
+!/src/*.c
+!Makefile
+!.gitignore
+*.o

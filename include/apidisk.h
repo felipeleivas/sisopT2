@@ -29,7 +29,7 @@ int read_sector (unsigned int sector, unsigned char *buffer);
 
 
 /*------------------------------------------------------------------------
-Função:	Realiza escrita de um setor lógico do disco
+Função:	Realiza escrita d=e um setor lógico do disco
 
 Entra:	sector -> setor lógico a ser escrito, iniciando em ZERO
 	buffer -> ponteiro para a área de memória onde estão os dados a serem escritos no disco

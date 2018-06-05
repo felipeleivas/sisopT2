@@ -15,7 +15,7 @@ Entra:
 	bitNumber -> bit a ser retornado
 Retorna:
 	Sucesso: valor do bit: ZERO ou UM (0 ou 1)
-	Erro: número negativo
+	Erro: nï¿½mero negativo
 ------------------------------------------------------------------------*/
 int	getBitmap2 (int handle, int bitNumber);
 
@@ -32,7 +32,7 @@ Entra:
 		!=0 -> coloca bit em 1
 Retorna
 	Sucesso: ZERO (0)
-	Erro: número negativo
+	Erro: nï¿½mero negativo
 ------------------------------------------------------------------------*/
 int	setBitmap2 (int handle, int bitNumber, int bitValue);
 
@@ -46,9 +46,9 @@ Entra:
 	bitValue -> valor procurado
 Retorna
 	Sucesso
-		Achou o bit: índice associado ao bit (número positivo)
-		Não achou: ZERO
-	Erro: número negativo
+		Achou o bit: ï¿½ndice associado ao bit (nï¿½mero positivo)
+		Nï¿½o achou: ZERO
+	Erro: nï¿½mero negativo
 ------------------------------------------------------------------------*/
 int	searchBitmap2 (int handle, int bitValue);
 
