@@ -16,8 +16,8 @@
 #define OCCUPIED 1
 #define INODE_BITMAP 0
 #define DATA_BITMAP 1
-#define INODE_SIZE sizeof(typedef struct t2fs_inode)
-#define INODES_PER_SECTOR SECTOR_SIZE/INODE_SIZE
+#define INODE_SIZE sizeof(struct t2fs_inode)
+#define INODES_PER_SECTOR (SECTOR_SIZE/INODE_SIZE)
 ////////////typedefs
 typedef struct t2fs_record RECORD;
 typedef struct t2fs_inode INODE;
@@ -93,14 +93,10 @@ int main(){
         }
     }
     int i = 0 ;
-//    INODE* inode;
     for(i = 0; i<15; i++){
         printf("%d",getBitmap2(BITMAP_INODE,i));
         INODE* inode = malloc(sizeof(INODE));
-//        INODE* inode2 = malloc(sizeof(INODE));
         getInodeById(i,inode);
-//        INODE* inode2;
-//        getInodeById(1,inode2);
         printf("inode %d\n",i);
         printf("first direct pointer: %d\n",inode->dataPtr[0]);
         printf("second direct pointer: %d\n",inode->dataPtr[1]);
@@ -200,7 +196,6 @@ int getInodeById(int id,INODE* inode){
         printf("Erro while reading the inode on disk");
         exit(-1);
     }
-//    &inode = (INODE*) malloc(sizeof(INODE*));
 
     inode->blocksFileSize = getDoubleWord(buffer[(INODE_SIZE * relativePossitionOnInodeBlock) +0],buffer[(INODE_SIZE * relativePossitionOnInodeBlock) +1],buffer[(INODE_SIZE * relativePossitionOnInodeBlock) +2],buffer[(INODE_SIZE * relativePossitionOnInodeBlock) +3]);
     inode->bytesFileSize = getDoubleWord(buffer[(INODE_SIZE * relativePossitionOnInodeBlock) +4],buffer[(INODE_SIZE * relativePossitionOnInodeBlock) +5],buffer[(INODE_SIZE * relativePossitionOnInodeBlock) +6],buffer[(INODE_SIZE * relativePossitionOnInodeBlock) +7]);
@@ -233,7 +228,7 @@ int writeInode(int id, INODE* inode){
 }
 
 int checkIfANameAlreadyExist(INODE inode, char* filename){
-
+    return 0;
 }
 
 int getBlock(int id, BYTE* blockBuffer){
@@ -243,5 +238,6 @@ int getBlock(int id, BYTE* blockBuffer){
         read_sector(blockToSector(id) + i,buffer);
         memcpy(blockBuffer + (i * SECTOR_SIZE),buffer,SECTOR_SIZE);
     }
+    return 0;
 }
 //int readRecord()
