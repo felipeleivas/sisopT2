@@ -16,7 +16,8 @@
 #define OCCUPIED 1
 #define INODE_BITMAP 0
 #define DATA_BITMAP 1
-
+#define INODE_SIZE sizeof(typedef struct t2fs_inode)
+#define INODES_PER_SECTOR SECTOR_SIZE/INODE_SIZE
 ////////////typedefs
 typedef struct t2fs_record RECORD;
 typedef struct t2fs_inode INODE;
@@ -32,8 +33,9 @@ int blockAreaOffset;
 ////////////////////////////////////////
 void initialize();
 int validName(char *filename);
-INODE* getInodeById(int id);
+int getInodeById(int id,INODE* inode);
 int writeInode(int id, INODE* inode);
+int getBlock(int id, BYTE* blockBuffer);
 
 WORD getWord(char leastSignificantByte, char mostSignificantByte){
     return ((WORD ) ((mostSignificantByte << 8) | leastSignificantByte));
@@ -82,17 +84,28 @@ int main(){
                 record->TypeVal = buffer[(i * 64) + 0];
                 strcpy(record->name,(char *)buffer+1 + (64 * i));
                 record->inodeNumber = getDoubleWord(buffer[(64 * i) + 60],buffer[(64 * i) + 61],buffer[(64 * i) + 62],buffer[(64 * i) + 63]);
-                printf("Type %d\n",record->TypeVal );
-                puts(record->name);
-                printf("inode %d\n\n",record->inodeNumber);
+                if(record->TypeVal == TYPEVAL_REGULAR || record->TypeVal == TYPEVAL_DIRETORIO ){
+                    printf("Type %d\n",record->TypeVal );
+                    puts(record->name);
+                    printf("inode %d\n\n",record->inodeNumber);
+                }
             }
         }
     }
-
-    INODE* inode = getInodeById(5);
-    printf("sdsa\n");
-    printf("%d\n",inode->dataPtr[0]);
-    printf("%d\n",inode->dataPtr[1]);
+    int i = 0 ;
+//    INODE* inode;
+    for(i = 0; i<15; i++){
+        printf("%d",getBitmap2(BITMAP_INODE,i));
+        INODE* inode = malloc(sizeof(INODE));
+//        INODE* inode2 = malloc(sizeof(INODE));
+        getInodeById(i,inode);
+//        INODE* inode2;
+//        getInodeById(1,inode2);
+        printf("inode %d\n",i);
+        printf("first direct pointer: %d\n",inode->dataPtr[0]);
+        printf("second direct pointer: %d\n",inode->dataPtr[1]);
+        free(inode);
+    }
 
 
     return 0;
@@ -123,7 +136,6 @@ void initialize(){
     superBlock->blockSize = getWord(buffer[14],buffer[15]);
     superBlock->diskSize = getDoubleWord(buffer[16],buffer[17],buffer[18],buffer[19]);
 
-
     iNodeAreaOffset =  blockToSector(superBlock->freeBlocksBitmapSize)
                        + blockToSector(superBlock->freeInodeBitmapSize)
                        + blockToSector(superBlock->superblockSize);
@@ -153,6 +165,7 @@ int create2(char *filename){
         printf("error writing inode");
         return ERROR_CODE;
     }
+
     setBitmap2(INODE_BITMAP,inodeId,OCCUPIED);
 
     RECORD* record = malloc(sizeof(RECORD*));
@@ -176,48 +189,59 @@ int validName(char *filename){
     return TRUE;
 }
 
-INODE* getInodeById(int id){
-    int relativePossitionOnInodeBlock = id%4;
-    int inodeSector = id/4 + iNodeAreaOffset;
+int getInodeById(int id,INODE* inode){
+    int relativePossitionOnInodeBlock = id%INODES_PER_SECTOR;
+    int inodeSector = id/INODES_PER_SECTOR + iNodeAreaOffset;
     if(inodeSector >= blockToSector(blockAreaOffset)){
         printf("iNode out of bound");
     }
+    printf("Sector: %d Inode: %d\n",inodeSector, id);
     if(read_sector(inodeSector,buffer) != SUCCESS_CODE){
         printf("Erro while reading the inode on disk");
         exit(-1);
     }
-    INODE* inode = malloc(sizeof(INODE*));
+//    &inode = (INODE*) malloc(sizeof(INODE*));
 
-    inode->blocksFileSize = getDoubleWord(buffer[(sizeof(INODE) * relativePossitionOnInodeBlock) +0],buffer[(sizeof(INODE) * relativePossitionOnInodeBlock) +1],buffer[(sizeof(INODE) * relativePossitionOnInodeBlock) +2],buffer[(sizeof(INODE) * relativePossitionOnInodeBlock) +3]);
-    inode->bytesFileSize = getDoubleWord(buffer[(sizeof(INODE) * relativePossitionOnInodeBlock) +4],buffer[(sizeof(INODE) * relativePossitionOnInodeBlock) +5],buffer[(sizeof(INODE) * relativePossitionOnInodeBlock) +6],buffer[(sizeof(INODE) * relativePossitionOnInodeBlock) +7]);
-    inode->dataPtr[0] = getDoubleWord(buffer[(sizeof(INODE) * relativePossitionOnInodeBlock) +8],buffer[(sizeof(INODE) * relativePossitionOnInodeBlock) +9],buffer[(sizeof(INODE) * relativePossitionOnInodeBlock) +10],buffer[(sizeof(INODE) * relativePossitionOnInodeBlock) +11]);
-    inode->dataPtr[1] = getDoubleWord(buffer[(sizeof(INODE) * relativePossitionOnInodeBlock) +12],buffer[(sizeof(INODE) * relativePossitionOnInodeBlock) +13],buffer[(sizeof(INODE) * relativePossitionOnInodeBlock) +14],buffer[(sizeof(INODE) * relativePossitionOnInodeBlock) +15]);
-    inode->singleIndPtr = getDoubleWord(buffer[(sizeof(INODE) * relativePossitionOnInodeBlock) +16],buffer[(sizeof(INODE) * relativePossitionOnInodeBlock) +17],buffer[(sizeof(INODE) * relativePossitionOnInodeBlock) +18],buffer[(sizeof(INODE) * relativePossitionOnInodeBlock) +19]);
-    inode->doubleIndPtr = getDoubleWord(buffer[(sizeof(INODE) * relativePossitionOnInodeBlock) +20],buffer[(sizeof(INODE) * relativePossitionOnInodeBlock) +21],buffer[(sizeof(INODE) * relativePossitionOnInodeBlock) +22],buffer[(sizeof(INODE) * relativePossitionOnInodeBlock) +23]);
-    inode->reservado[0] = getDoubleWord(buffer[(sizeof(INODE) * relativePossitionOnInodeBlock) +sizeof(INODE)],buffer[(sizeof(INODE) * relativePossitionOnInodeBlock) +25],buffer[(sizeof(INODE) * relativePossitionOnInodeBlock) +27],buffer[(sizeof(INODE) * relativePossitionOnInodeBlock) +28]);
-    inode->reservado[1] = getDoubleWord(buffer[(sizeof(INODE) * relativePossitionOnInodeBlock) +28],buffer[(sizeof(INODE) * relativePossitionOnInodeBlock) +29],buffer[(sizeof(INODE) * relativePossitionOnInodeBlock) +30],buffer[(sizeof(INODE) * relativePossitionOnInodeBlock) +31]);
-
-    return inode;
+    inode->blocksFileSize = getDoubleWord(buffer[(INODE_SIZE * relativePossitionOnInodeBlock) +0],buffer[(INODE_SIZE * relativePossitionOnInodeBlock) +1],buffer[(INODE_SIZE * relativePossitionOnInodeBlock) +2],buffer[(INODE_SIZE * relativePossitionOnInodeBlock) +3]);
+    inode->bytesFileSize = getDoubleWord(buffer[(INODE_SIZE * relativePossitionOnInodeBlock) +4],buffer[(INODE_SIZE * relativePossitionOnInodeBlock) +5],buffer[(INODE_SIZE * relativePossitionOnInodeBlock) +6],buffer[(INODE_SIZE * relativePossitionOnInodeBlock) +7]);
+    inode->dataPtr[0] = getDoubleWord(buffer[(INODE_SIZE * relativePossitionOnInodeBlock) +8],buffer[(INODE_SIZE * relativePossitionOnInodeBlock) +9],buffer[(INODE_SIZE * relativePossitionOnInodeBlock) +10],buffer[(INODE_SIZE * relativePossitionOnInodeBlock) +11]);
+    inode->dataPtr[1] = getDoubleWord(buffer[(INODE_SIZE * relativePossitionOnInodeBlock) +12],buffer[(INODE_SIZE * relativePossitionOnInodeBlock) +13],buffer[(INODE_SIZE * relativePossitionOnInodeBlock) +14],buffer[(INODE_SIZE * relativePossitionOnInodeBlock) +15]);
+    inode->singleIndPtr = getDoubleWord(buffer[(INODE_SIZE * relativePossitionOnInodeBlock) +16],buffer[(INODE_SIZE * relativePossitionOnInodeBlock) +17],buffer[(INODE_SIZE * relativePossitionOnInodeBlock) +18],buffer[(INODE_SIZE * relativePossitionOnInodeBlock) +19]);
+    inode->doubleIndPtr = getDoubleWord(buffer[(INODE_SIZE * relativePossitionOnInodeBlock) +20],buffer[(INODE_SIZE * relativePossitionOnInodeBlock) +21],buffer[(INODE_SIZE * relativePossitionOnInodeBlock) +22],buffer[(INODE_SIZE * relativePossitionOnInodeBlock) +23]);
+    inode->reservado[0] = getDoubleWord(buffer[(INODE_SIZE * relativePossitionOnInodeBlock) +INODE_SIZE],buffer[(INODE_SIZE * relativePossitionOnInodeBlock) +25],buffer[(INODE_SIZE * relativePossitionOnInodeBlock) +27],buffer[(INODE_SIZE * relativePossitionOnInodeBlock) +28]);
+    inode->reservado[1] = getDoubleWord(buffer[(INODE_SIZE * relativePossitionOnInodeBlock) +28],buffer[(INODE_SIZE * relativePossitionOnInodeBlock) +29],buffer[(INODE_SIZE * relativePossitionOnInodeBlock) +30],buffer[(INODE_SIZE * relativePossitionOnInodeBlock) +31]);
+    return SUCCESS_CODE;
 }
 
 int writeInode(int id, INODE* inode){
-    int inodeSize = sizeof(INODE);
-    int relativePossitionOnInodeBlock = id%4;
-    int inodeSector = id/4 + iNodeAreaOffset;
+    int relativePossitionOnInodeBlock = id%INODES_PER_SECTOR;
+    int inodeSector = id/INODES_PER_SECTOR + iNodeAreaOffset;
     if(inodeSector >= blockToSector(blockAreaOffset)){
         printf("iNode out of bound");
     }
     read_sector(inodeSector, buffer);
     memcpy(buffer,dwordToBytes(inode->blocksFileSize), 4);
-    memcpy(buffer + (inodeSize * relativePossitionOnInodeBlock) + 4,dwordToBytes(inode->bytesFileSize), 4);
-    memcpy(buffer + (inodeSize * relativePossitionOnInodeBlock) + 8,dwordToBytes(inode->dataPtr[0]), 4);
-    memcpy(buffer + (inodeSize * relativePossitionOnInodeBlock) + 12,dwordToBytes(inode->dataPtr[1]), 4);
-    memcpy(buffer + (inodeSize * relativePossitionOnInodeBlock) + 16,dwordToBytes(inode->singleIndPtr), 4);
-    memcpy(buffer + (inodeSize * relativePossitionOnInodeBlock) + 20,dwordToBytes(inode->doubleIndPtr), 4);
-    memcpy(buffer + (inodeSize * relativePossitionOnInodeBlock) + 24,dwordToBytes(inode->reservado[0]), 4);
-    memcpy(buffer + (inodeSize * relativePossitionOnInodeBlock) + 28,dwordToBytes(inode->reservado[1]), 4);
+    memcpy(buffer + (INODE_SIZE * relativePossitionOnInodeBlock) + 4,dwordToBytes(inode->bytesFileSize), 4);
+    memcpy(buffer + (INODE_SIZE * relativePossitionOnInodeBlock) + 8,dwordToBytes(inode->dataPtr[0]), 4);
+    memcpy(buffer + (INODE_SIZE * relativePossitionOnInodeBlock) + 12,dwordToBytes(inode->dataPtr[1]), 4);
+    memcpy(buffer + (INODE_SIZE * relativePossitionOnInodeBlock) + 16,dwordToBytes(inode->singleIndPtr), 4);
+    memcpy(buffer + (INODE_SIZE * relativePossitionOnInodeBlock) + 20,dwordToBytes(inode->doubleIndPtr), 4);
+    memcpy(buffer + (INODE_SIZE * relativePossitionOnInodeBlock) + 24,dwordToBytes(inode->reservado[0]), 4);
+    memcpy(buffer + (INODE_SIZE * relativePossitionOnInodeBlock) + 28,dwordToBytes(inode->reservado[1]), 4);
 
     return write_sector(inodeSector,buffer);
 }
 
+int checkIfANameAlreadyExist(INODE inode, char* filename){
+
+}
+
+int getBlock(int id, BYTE* blockBuffer){
+    int i=0;
+        blockBuffer = malloc(sizeof(BYTE) * superBlock->blockSize * SECTOR_SIZE);
+    for(i = 0; i < superBlock->blockSize; i++){
+        read_sector(blockToSector(id) + i,buffer);
+        memcpy(blockBuffer + (i * SECTOR_SIZE),buffer,SECTOR_SIZE);
+    }
+}
 //int readRecord()
