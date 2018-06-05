@@ -58,7 +58,7 @@ BYTE* dwordToBytes(DWORD dword) {
 }
 
 unsigned int blockToSector(unsigned int block){
-    return block * 4;
+    return block * superBlock->blockSize;
 }
 
 
@@ -201,18 +201,22 @@ INODE* getInodeById(int id){
 }
 
 int writeInode(int id, INODE* inode){
-    int inodeSector = id + iNodeAreaOffset;
+    int inodeSize = sizeof(INODE);
+    int relativePossitionOnInodeBlock = id%4;
+    int inodeSector = id/4 + iNodeAreaOffset;
     if(inodeSector >= blockToSector(blockAreaOffset)){
         printf("iNode out of bound");
     }
+    read_sector(inodeSector, buffer);
     memcpy(buffer,dwordToBytes(inode->blocksFileSize), 4);
-    memcpy(buffer + 4,dwordToBytes(inode->bytesFileSize), 4);
-    memcpy(buffer + 8,dwordToBytes(inode->dataPtr[0]), 4);
-    memcpy(buffer + 12,dwordToBytes(inode->dataPtr[1]), 4);
-    memcpy(buffer + 16,dwordToBytes(inode->singleIndPtr), 4);
-    memcpy(buffer + 20,dwordToBytes(inode->doubleIndPtr), 4);
-    memcpy(buffer + 24,dwordToBytes(inode->reservado[0]), 4);
-    memcpy(buffer + 28,dwordToBytes(inode->reservado[1]), 4);
+    memcpy(buffer + (inodeSize * relativePossitionOnInodeBlock) + 4,dwordToBytes(inode->bytesFileSize), 4);
+    memcpy(buffer + (inodeSize * relativePossitionOnInodeBlock) + 8,dwordToBytes(inode->dataPtr[0]), 4);
+    memcpy(buffer + (inodeSize * relativePossitionOnInodeBlock) + 12,dwordToBytes(inode->dataPtr[1]), 4);
+    memcpy(buffer + (inodeSize * relativePossitionOnInodeBlock) + 16,dwordToBytes(inode->singleIndPtr), 4);
+    memcpy(buffer + (inodeSize * relativePossitionOnInodeBlock) + 20,dwordToBytes(inode->doubleIndPtr), 4);
+    memcpy(buffer + (inodeSize * relativePossitionOnInodeBlock) + 24,dwordToBytes(inode->reservado[0]), 4);
+    memcpy(buffer + (inodeSize * relativePossitionOnInodeBlock) + 28,dwordToBytes(inode->reservado[1]), 4);
+
     return write_sector(inodeSector,buffer);
 }
 
