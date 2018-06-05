@@ -230,6 +230,7 @@ void cmdCp(void) {
         return;
     }
     // Cria o arquivo de destino, que ser� resetado se existir
+    printf(dst);
     FILE2 hDst = create2 (dst);
     if (hDst<0) {
         close2(hSrc);
