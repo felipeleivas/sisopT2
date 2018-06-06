@@ -58,6 +58,7 @@ void getRecordOnBlockByPosition(BYTE *blockBuffer, int position, RECORD *record)
 int getRecordByIndex(int iNodeId, int indexOfRecord, RECORD *record);
 int getRecordByName(int inodeNumber, char *filename, RECORD* record);
 int writeBlock(int id, BYTE* blockBuffer);
+char** filenameTooNamesList(char *filename);
 
 WORD getWord(char leastSignificantByte, char mostSignificantByte){
     return ((WORD ) ((mostSignificantByte << 8) | leastSignificantByte));
@@ -90,8 +91,9 @@ unsigned int blockToSector(unsigned int block){
 }
 
 //
-int main(){
-    FILE2 f = open2("file3");
+int main() {
+  printf("entrei");
+    /* FILE2 f = open2("file3");
     char buffer[2560]={0};
     read2(f,buffer,1);
 
@@ -115,20 +117,20 @@ int main(){
     strcpy(buffer2,"ISSOTACERTO");
     write2(f,buffer2,strlen("ISSOTACERTO"));
 
-    puts("vai printar:");
+    puts("vai printar:"); */
 //    read2(f,buffer,14);
 //    for(i = 0 ; i<256; i++){
 //        printf("%c",buffer[i]);
 //    }
-    puts("");
-    FILE2 f2 = open2("file3");
-    read2(f2,buffer,2560);
-    for(i = 0 ; i<2560; i++){
+    //puts("");
+    //FILE2 f2 = open2("file3");
+    //read2(f2, buffer, 2560);
+    //for(i = 0 ; i<2560; i++){
 //        if(buffer[i] != 0){
 //            printf("%.5d\t",i);
-            printf("%c",buffer[i]);
+      //      printf("%c",buffer[i]);
 //        }
-    }
+    //}
 //    puts("\n");
 //    for(i = 0; i < 100; i++){
 //        printf("%d ",getBitmap2(DATA_BITMAP,i));
@@ -141,7 +143,19 @@ int main(){
 //    fwrite("---\0",1,3,pf);
 //    fclose(pf);
 //    initialize();
-
+//
+    char *filename = "/teste/vini/deus/mestre.txt";
+    char **names = filenameTooNamesList(filename);
+    int flag = 0, counter = 0;
+    printf("Entrei");
+    while(flag == 0) {
+      printf("Entrei");
+      if(names[counter][0] == NULL) {
+        flag = 1;
+      } else {
+        printf("Palavra %d = %s", counter, names[counter]);
+      }
+    }
     return 0;
 }
 
@@ -198,6 +212,46 @@ int validName(char *filename) {
         }
     }
     return TRUE;
+}
+
+// Verifica se o nome do arquivo é um caminho absoluto
+int isAbsolutePath(char *filename) {
+  if(filename[0] == "/") {
+    return TRUE;
+  } else {
+    return FALSE;
+  }
+}
+
+// Recebe um filename e transforma em uma lista de nomes. O último elemento é NULL.
+// Exemplo: recebe "/home/vini/deus/file.txt"
+//          retorna {"/", "home", "deus", "file.txt", NULL}
+char** filenameTooNamesList(char *filename) {
+  int i = 0, nameCounter = 0, characterCounter = 0;
+  char** names;
+
+  // Nome do diretório root
+  names[0][0] = "/";
+  names[0][1] = "\0";
+  nameCounter++;
+
+  for(i = 1; i < strlen(filename); i++) {
+
+    // Chegamos na próxima barra, logo, acabou o nome
+    if(filename[i] == "/") {
+      names[nameCounter][characterCounter] = "\0";
+      nameCounter++;
+      characterCounter = 0;
+    } else {
+      // Caractere não é barra, logo, faz parte do nome
+      names[nameCounter][characterCounter] = filename[i];
+      characterCounter ++;
+    }
+  }
+
+  names[nameCounter][0] = NULL;
+
+  return names;
 }
 
 // Recebe o ID do inode e um ponteiro para a estrutura de um inode,
@@ -368,16 +422,17 @@ int getNextBlock(int lastBlockIndex, INODE* inode) {
     }
 }
 
-int allocInode(){
+int allocInode() {
     int inodeId = searchBitmap2(INODE_BITMAP,FREE);
-    if(inodeId > 0){
+    if(inodeId > 0) {
         setBitmap2(INODE_BITMAP,inodeId,OCCUPIED);
     }
     return inodeId;
 }
-int allocBlock(){
+
+int allocBlock() {
     int inodeId = searchBitmap2(DATA_BITMAP,FREE);
-    if(inodeId > 0){
+    if(inodeId > 0) {
         setBitmap2(INODE_BITMAP,inodeId,OCCUPIED);
     }
     return inodeId;
@@ -425,13 +480,21 @@ int delete2 (char *filename){
     return 0;
 }
 
-
-FILE2 open2 (char *filename){
-    if(initialized == FALSE){
+// Função que abre um arquivo existente no disco.
+FILE2 open2 (char *filename) {
+    if(initialized == FALSE) {
         initialize();
     }
+
+    if(isAbsolutePath(filename)) {
+      char **directoryNames = filenameTooNamesList(filename);
+    } else {
+
+    }
+
+
     RECORD *record = malloc(RECORD_SIZE);
-    getRecordByName(rootInode,filename,record);
+    getRecordByName(rootInode, filename, record);
     int openFileIndex = getOpenFileStruct();
     if(record->TypeVal != TYPEVAL_REGULAR){
         printf("Can't open these kind of file\n");
