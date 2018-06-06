@@ -92,7 +92,7 @@ unsigned int blockToSector(unsigned int block){
 
 //
 int main() {
-  printf("entrei");
+  printf("entrei\n");
     /* FILE2 f = open2("file3");
     char buffer[2560]={0};
     read2(f,buffer,1);
@@ -147,10 +147,11 @@ int main() {
     char *filename = "/teste/vini/deus/mestre.txt";
     char **names = filenameTooNamesList(filename);
     int flag = 0, counter = 0;
-    printf("Entrei");
+    printf("Entrei 222\n");
     while(flag == 0) {
-      printf("Entrei");
+      printf("Entrei\n");
       if(names[counter][0] == NULL) {
+        printf("ENrrei FINAl\n");
         flag = 1;
       } else {
         printf("Palavra %d = %s", counter, names[counter]);
@@ -228,18 +229,28 @@ int isAbsolutePath(char *filename) {
 //          retorna {"/", "home", "deus", "file.txt", NULL}
 char** filenameTooNamesList(char *filename) {
   int i = 0, nameCounter = 0, characterCounter = 0;
-  char** names;
-
+  int numberOfWords = 1, flag = 0;
+  for(i = 1; i < strlen(filename); i++) {
+    if(flag == 1) {
+      numberOfWords++;
+      flag = 0;
+    }
+    if(filename[i] == '/') {
+      flag = 1;
+    }
+  }
+  char names[numberOfWords][60];
+  printf("ENTREI 1 \n");
   // Nome do diretório root
-  names[0][0] = "/";
-  names[0][1] = "\0";
+  names[0][0] = '/';
+  names[0][1] = '\0';
   nameCounter++;
-
+  printf("ENTREI 2 \n");
   for(i = 1; i < strlen(filename); i++) {
 
     // Chegamos na próxima barra, logo, acabou o nome
-    if(filename[i] == "/") {
-      names[nameCounter][characterCounter] = "\0";
+    if(filename[i] == '/') {
+      names[nameCounter][characterCounter] = '\0';
       nameCounter++;
       characterCounter = 0;
     } else {
@@ -250,8 +261,7 @@ char** filenameTooNamesList(char *filename) {
   }
 
   names[nameCounter][0] = NULL;
-
-  return names;
+  return &names;
 }
 
 // Recebe o ID do inode e um ponteiro para a estrutura de um inode,
