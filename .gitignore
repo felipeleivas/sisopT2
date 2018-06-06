@@ -1,12 +1,20 @@
 #Exclude everything
 /*
+
 !/bin
 !/exemplo
 !/testes
 /testes/build
 !/include
-!/lib
+!/lib/
 !/src/
+/src/*
+!/src/*.c
+!/src/*.dat
+!*.dat
+!*.sh
 !Makefile
+!makefile
 !.gitignore
 *.o
+!/lib/*.o
