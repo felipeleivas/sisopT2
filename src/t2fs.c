@@ -43,6 +43,7 @@ int blockAreaOffset;
 int numberOfRecordsPerBlock;
 int rootInode;
 int blockBufferSize;
+int i;
 ////////////////////////////////////////
 void initialize();
 int validName(char *filename);
@@ -82,17 +83,12 @@ unsigned int blockToSector(unsigned int block){
     return block * superBlock->blockSize;
 }
 
-
-
-
-
-
 //
 int main(){
     FILE2 f = open2("file3");
-    char buffer[256]={0};
+    char buffer[2560]={0};
     read2(f,buffer,1);
-    int i;
+
     for(i = 0 ; i<256; i++){
         printf("%c",buffer[i]);
     }
@@ -105,20 +101,29 @@ int main(){
     printf("foi, agr vou escrever\n");
 
     char buffer2[256]={0};
-    strcpy(buffer2,"testFelipe");
-
-    write2(f,buffer2,10);
-    read2(f,buffer,14);
-    for(i = 0 ; i<256; i++){
-        printf("%c",buffer[i]);
+    strcpy(buffer2,"testFeli");
+    for(i = 0; i <105; i++){
+        write2(f,buffer2,10);
     }
+
+    strcpy(buffer2,"ISSOTACERTO");
+    write2(f,buffer2,strlen("ISSOTACERTO"));
+
+    puts("vai printar:");
+//    read2(f,buffer,14);
+//    for(i = 0 ; i<256; i++){
+//        printf("%c",buffer[i]);
+//    }
     puts("");
     FILE2 f2 = open2("file3");
-    read2(f2,buffer,256);
-    for(i = 0 ; i<256; i++){
-        printf("%c",buffer[i]);
+    read2(f2,buffer,2560);
+    for(i = 0 ; i<2560; i++){
+//        if(buffer[i] != 0){
+//            printf("%.5d\t",i);
+            printf("%c",buffer[i]);
+//        }
     }
-    puts("\n");
+//    puts("\n");
 //    for(i = 0; i < 100; i++){
 //        printf("%d ",getBitmap2(DATA_BITMAP,i));
 //    }
@@ -301,11 +306,11 @@ int getOpenFileStruct(){
 }
 
 int getNextBlock(int lastBlockIndex, INODE* inode){
+    if(inode == NULL){
+        printf("ERROR");
+    }
+//    printf("TESTE O FELIPE ENTROU AUQI %d\n",inode->dataPtr[0]);
     if(lastBlockIndex == 0){
-//        if(inode->dataPtr[1] == INVALID_PTR){
-////            printf("Error trying to access dataPointer[1]");
-//            return ERROR_CODE;
-//        }
         return inode->dataPtr[1];
     }
 
@@ -335,36 +340,51 @@ int getNextBlock(int lastBlockIndex, INODE* inode){
     }
 }
 
+int allocInode(){
+    int inodeId = searchBitmap2(INODE_BITMAP,FREE);
+    if(inodeId > 0){
+        setBitmap2(INODE_BITMAP,inodeId,OCCUPIED);
+    }
+    return inodeId;
+}
+int allocBlock(){
+    int inodeId = searchBitmap2(DATA_BITMAP,FREE);
+    if(inodeId > 0){
+        setBitmap2(INODE_BITMAP,inodeId,OCCUPIED);
+    }
+    return inodeId;
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 int create2(char *filename){
-    if(initialized == FALSE){
-        initialize();
-    }
-
-    if(validName(filename) != TRUE){
-        printf("Error with filename");
-        return ERROR_CODE;
-    }
-    INODE* inode = malloc(sizeof(INODE*));
-    inode->blocksFileSize = 0;
-    inode->bytesFileSize = 34;
-    inode->dataPtr[0] = INVALID_PTR;
-    inode->singleIndPtr = INVALID_PTR;
-    inode->doubleIndPtr = INVALID_PTR;
-
+//    if(initialized == FALSE){
+//        initialize();
+//    }
+//
+//    if(validName(filename) != TRUE){
+//        printf("Error with filename");
+//        return ERROR_CODE;
+//    }
+//    INODE* inode = malloc(sizeof(INODE*));
+//    inode->blocksFileSize = 0;
+//    inode->bytesFileSize = 34;
+//    inode->dataPtr[0] = INVALID_PTR;
+//    inode->singleIndPtr = INVALID_PTR;
+//    inode->doubleIndPtr = INVALID_PTR;
+//
     int inodeId = searchBitmap2(DATA_BITMAP,FREE);
-    if(writeInode(inodeId,inode) != SUCCESS_CODE){
-        printf("error writing inode");
-        return ERROR_CODE;
-    }
-
-    setBitmap2(INODE_BITMAP,inodeId,OCCUPIED);
-
-    RECORD* record = malloc(sizeof(RECORD*));
-    strcpy(record->name,filename);
-    record->TypeVal = TYPEVAL_REGULAR;
-    record->inodeNumber = inodeId;
+//    if(writeInode(inodeId,inode) != SUCCESS_CODE){
+//        printf("error writing inode");
+//        return ERROR_CODE;
+//    }
+//
+//    setBitmap2(INODE_BITMAP,inodeId,OCCUPIED);
+//
+//    RECORD* record = malloc(sizeof(RECORD*));
+//    strcpy(record->name,filename);
+//    record->TypeVal = TYPEVAL_REGULAR;
+//    record->inodeNumber = inodeId;
 
     return inodeId;
 }
@@ -414,9 +434,16 @@ int read2 (FILE2 handle, char *buffer, int size){
     int currentPointerOffset = openFiles[handle].currentPointer;
     int currentBlockOffset = currentPointerOffset/blockBufferSize;
     int blockCurrentPointerOffset = (currentPointerOffset % blockBufferSize);
-
     INODE* inode = malloc(INODE_SIZE);
     getInodeById(openFiles[handle].inodeId,inode);
+
+    puts("\nREAD: ");
+    printf("currentPointerOffset %d\n", currentPointerOffset);
+    printf("size %d\n", size);
+    printf("currentBlockOffset %d\n", currentBlockOffset);
+    printf("fileMaxSize %d\n", inode->bytesFileSize);
+
+
 
     if(inode->bytesFileSize < currentPointerOffset + size){
         size = inode->bytesFileSize - currentPointerOffset;
@@ -434,10 +461,10 @@ int read2 (FILE2 handle, char *buffer, int size){
 
     BYTE blockBuffer[blockBufferSize];
     int bufferOffset = 0;
+    printf("\nEntrou\n");
+
     while(currentPointerOffset + size > (currentBlockOffset + 1) * blockBufferSize){
-
-        int partSize = (currentBlockOffset + 1) * blockBufferSize - currentBlockOffset - 1;
-
+        int partSize = (currentBlockOffset + 1) * blockBufferSize - currentPointerOffset - 1;
         getBlock(openFiles[handle].openBlockId,blockBuffer);
 
         memcpy(buffer + bufferOffset,blockBuffer + blockCurrentPointerOffset,partSize);
@@ -449,7 +476,7 @@ int read2 (FILE2 handle, char *buffer, int size){
 
         openFiles[handle].openBlockId = getNextBlock(currentBlockOffset, inode);
         if(openFiles[handle].openBlockId == INVALID_PTR){
-            printf("Error reading nextBlock");
+            printf("Error reading nextBlock\n");
             return  -1;
         }
         currentBlockOffset++;
@@ -459,7 +486,7 @@ int read2 (FILE2 handle, char *buffer, int size){
 
 
 
-    openFiles[handle].currentPointer += size;
+    openFiles[handle].currentPointer = currentPointerOffset;
     free(inode);
     return 0;
 }
@@ -473,26 +500,22 @@ int write2 (FILE2 handle, char *buffer, int size){
     int blockCurrentPointerOffset = (currentPointerOffset%blockBufferSize);
 
     INODE* inode = malloc(INODE_SIZE);
+    if(inode == NULL){
+        printf("Error malloc inode\n");
+        return ERROR_CODE;
+    }
     getInodeById(openFiles[handle].inodeId,inode);
 
+
     BYTE blockBuffer[blockBufferSize];
-    getBlock(openFiles[handle].openBlockId,blockBuffer);
-    memcpy(blockBuffer + blockCurrentPointerOffset,buffer,size);
-    writeBlock(openFiles[handle].openBlockId,blockBuffer);
-
-    currentPointerOffset += size;
-    if(currentPointerOffset > inode->bytesFileSize){
-        inode->bytesFileSize = currentPointerOffset;
-    }
-
     int bufferOffset = 0;
     while(currentPointerOffset + size > (currentBlockOffset + 1) * blockBufferSize){
-
-        int partSize = (currentBlockOffset + 1) * blockBufferSize - currentBlockOffset - 1;
+        int partSize = (currentBlockOffset + 1) * blockBufferSize - currentPointerOffset - 1;
 
         getBlock(openFiles[handle].openBlockId,blockBuffer);
 
         memcpy(blockBuffer + blockCurrentPointerOffset,buffer + bufferOffset,partSize);
+        writeBlock(openFiles[handle].openBlockId,blockBuffer);
 
         bufferOffset += partSize;
         currentPointerOffset += partSize;
@@ -500,21 +523,50 @@ int write2 (FILE2 handle, char *buffer, int size){
         size -= partSize;
 
         openFiles[handle].openBlockId = getNextBlock(currentBlockOffset, inode);
+
         if(openFiles[handle].openBlockId == INVALID_PTR){
-            int freeBlockId = searchBitmap2(BITMAP_DADOS,FREE);
-            if(freeBlockId < 0 ){
+            int freeBlockId = allocInode();
+            if(freeBlockId <= 0 ){
                 printf("Cannot find free space");
                 return ERROR_CODE;
             }
+            inode->blocksFileSize++;
+//            inode->dataPtr[1] = freeBlockId;
+
+            assignBlockToInode(currentBlockOffset + 1, freeBlockId, inode);
+
+            openFiles[handle].openBlockId = freeBlockId;
 
 
         }
         currentBlockOffset++;
     }
+    getBlock(openFiles[handle].openBlockId,blockBuffer);
+    memcpy(blockBuffer + blockCurrentPointerOffset,buffer + bufferOffset,size);
+    writeBlock(openFiles[handle].openBlockId,blockBuffer);
 
+    currentPointerOffset += size;
+
+    if(currentPointerOffset > inode->bytesFileSize){
+        inode->bytesFileSize = currentPointerOffset;
+    }
     writeInode(openFiles[handle].inodeId, inode);
-
+    openFiles[handle].currentPointer = currentPointerOffset;
     return 0;
+}
+
+int assignBlockToInode(int blockIndex, int freeBlockId, INODE* inode ){
+    if(blockIndex< 2){
+        inode->dataPtr[blockIndex] = freeBlockId;
+    }
+    if(blockIndex < (blockBufferSize/sizeof(DWORD)) + 2){
+        if(inode->singleIndPtr = INVALID_PTR){
+            int freeInode = allocInode();
+        }
+    }
+    else{
+
+    }
 }
 
 
