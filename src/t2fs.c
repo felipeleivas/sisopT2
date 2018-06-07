@@ -59,6 +59,7 @@ int getRecordByIndex(int iNodeId, int indexOfRecord, RECORD *record);
 int getRecordByName(int inodeNumber, char *filename, RECORD* record);
 int writeBlock(int id, BYTE* blockBuffer);
 int assignBlockToInode(int blockIndex, int freeBlockId, INODE* inode );
+char** filenameTooNamesList(char *filename);
 
 WORD getWord(char leastSignificantByte, char mostSignificantByte){
     return ((WORD ) ((mostSignificantByte << 8) | leastSignificantByte));
@@ -93,40 +94,23 @@ unsigned int blockToSector(unsigned int block){
 //
 int main(){
     FILE2 f = open2("file3");
-    char buffer[(1024 * 1024)]={0};
+//    char buffer[(1024 * 1024)]={0};
 //    read2(f,buffer,1);
     int i;
-
-    for(i = 0 ; i<256; i++){
-        printf("%c",buffer[i]);
-    }
-    printf("\n");
-//    read2(f,buffer,14);
-    for(i = 0 ; i<256; i++){
-        printf("%c",buffer[i]);
-    }
-
-    char buffer2[256]={0};
-    strcpy(buffer2,"testFeli");
-//    for(i = 0; i <(1024 * 258) -1 ; i++){
-//        buffer2[0] = 48 + (i%10);
-//        if(write2(f,buffer2,1) == ERROR_CODE)
-//            printf("ERROR");
+//    char *filename = "/teste/vini/deus/mestre.txt";
+//    char **names = filenameTooNamesList(filename);
+//    int flag = 0, counter = 0;
+//    printf("Entrei 222\n");
+//    while(flag == 0) {
+//      printf("Entrei\n");
+//      if(names[counter][0] == NULL) {
+//        printf("ENrrei FINAl\n");
+//        flag = 1;
+//      } else {
+//        printf("Palavra %d = %s", counter, names[counter]);
+//      }
 //    }
-//    buffer2[0] = 'X';
-//    if(write2(f,buffer2,1) == ERROR_CODE)
-//        printf("ERROR");
-
-
-    puts("");
-    FILE2 f2 = open2("file3");
-    int k = read2(f2,buffer,1024*1024);
-        for(i=0; i <k; i++){
-            printf("%c",buffer[i]);
-        }
-    printf("\n%d\n",k);
-
-    return 0;
+//    return 0;
 }
 
 // Inicialização do Sistema
@@ -181,6 +165,55 @@ int validName(char *filename) {
         }
     }
     return TRUE;
+}
+
+// Verifica se o nome do arquivo é um caminho absoluto
+int isAbsolutePath(char *filename) {
+  if(filename[0] == "/") {
+    return TRUE;
+  } else {
+    return FALSE;
+  }
+}
+
+// Recebe um filename e transforma em uma lista de nomes. O último elemento é NULL.
+// Exemplo: recebe "/home/vini/deus/file.txt"
+//          retorna {"/", "home", "deus", "file.txt", NULL}
+char** filenameTooNamesList(char *filename) {
+  int i = 0, nameCounter = 0, characterCounter = 0;
+  int numberOfWords = 1, flag = 0;
+  for(i = 1; i < strlen(filename); i++) {
+    if(flag == 1) {
+      numberOfWords++;
+      flag = 0;
+    }
+    if(filename[i] == '/') {
+      flag = 1;
+    }
+  }
+  char names[numberOfWords][60];
+  printf("ENTREI 1 \n");
+  // Nome do diretório root
+  names[0][0] = '/';
+  names[0][1] = '\0';
+  nameCounter++;
+  printf("ENTREI 2 \n");
+  for(i = 1; i < strlen(filename); i++) {
+
+    // Chegamos na próxima barra, logo, acabou o nome
+    if(filename[i] == '/') {
+      names[nameCounter][characterCounter] = '\0';
+      nameCounter++;
+      characterCounter = 0;
+    } else {
+      // Caractere não é barra, logo, faz parte do nome
+      names[nameCounter][characterCounter] = filename[i];
+      characterCounter ++;
+    }
+  }
+
+  names[nameCounter][0] = NULL;
+  return &names;
 }
 
 // Recebe o ID do inode e um ponteiro para a estrutura de um inode,
@@ -368,14 +401,15 @@ int getNextBlock(int lastBlockIndex, INODE* inode) {
     }
 }
 
-int allocInode(){
+int allocInode() {
     int inodeId = searchBitmap2(INODE_BITMAP,FREE);
-    if(inodeId > 0){
+    if(inodeId > 0) {
         setBitmap2(INODE_BITMAP,inodeId,OCCUPIED);
     }
     return inodeId;
 }
-int allocBlock(){
+
+int allocBlock() {
     int inodeId = searchBitmap2(DATA_BITMAP,FREE);
     if(inodeId > 0){
         setBitmap2(DATA_BITMAP,inodeId,OCCUPIED);
@@ -425,13 +459,21 @@ int delete2 (char *filename){
     return 0;
 }
 
-
-FILE2 open2 (char *filename){
-    if(initialized == FALSE){
+// Função que abre um arquivo existente no disco.
+FILE2 open2 (char *filename) {
+    if(initialized == FALSE) {
         initialize();
     }
+
+    if(isAbsolutePath(filename)) {
+      char **directoryNames = filenameTooNamesList(filename);
+    } else {
+
+    }
+
+
     RECORD *record = malloc(RECORD_SIZE);
-    getRecordByName(rootInode,filename,record);
+    getRecordByName(rootInode, filename, record);
     int openFileIndex = getOpenFileStruct();
     if(record->TypeVal != TYPEVAL_REGULAR){
         printf("Can't open these kind of file\n");
@@ -678,7 +720,7 @@ int readdir2 (DIR2 handle, DIRENT2 *dentry){
     return 0;
 }
 
-int closedir2 (DIR2 handle){
+int closedir2 (DIR2 handle) {
     return 0;
 }
 
