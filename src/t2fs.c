@@ -107,22 +107,27 @@ unsigned int blockToSector(unsigned int block){
 
 //
 int main(){
+    int bufferSize = 1024 * 1024;
+    initialize();
     FILE2 f = open2("/file3");
-//    char buffer[(1024 * 1024)]={0};
-//    read2(f,buffer,1);
-
-/*
-    char *filename = "/teste/vini/deus/mestre.txt";
-    // Exemplo da função filenameTooNamesList
-    nameNode *names = filenameTooNamesList(filename);
-    nameNode *namesAux = names;
-    while(namesAux != NULL) {
-      printf("Nome: %s", namesAux->name);
-      namesAux = namesAux->next;
+        char auxBuffer[1024 * 1024] = {0};
+    read2(f,auxBuffer, bufferSize);
+    int i;
+    for(i=0; i<bufferSize; i++){
+        printf("%c",auxBuffer[i]);
     }
-    destroyNamesList(names); */
-    //////////////////////////////////////////
+//    FILE2 f2 = open2("file3");
+//    for(i = 0; i <(1024 * 255) - 1; i++){
+//        if(write2(f2,auxBuffer,1) == ERROR_CODE)
+//            printf("ERROR\n");
+//    }
+    FILE2 f3 = open2("file3");
+    int k = read2(f3,auxBuffer,bufferSize);
+    for(i = 0; i <(k) - 1; i++){
+            printf("%c",i);
+    }
 
+    return 0;
 }
 
 // Inicialização do Sistema
@@ -180,7 +185,6 @@ void initialize() {
         openFiles[i].openBlockId=-1;
     }
 
-    printf("\nInitialized success!\n");
 
     initialized = TRUE;
 }
@@ -210,7 +214,7 @@ int isAbsolutePath(char *filename) {
 // Recebe um filename e transforma em uma lista de nomes.
 nameNode* filenameTooNamesList(char *filename) {
   int i = 0, characterCounter = 0;
-  int numberOfWords = 1, flag = 0;
+//  int numberOfWords = 1, flag = 0;
 
   nameNode *firstName = (nameNode *) malloc(sizeof(nameNode));
   firstName->next = NULL;
@@ -335,6 +339,7 @@ int writeBlock(int id, BYTE* blockBuffer) {
     return 0;
 }
 
+
 // Recebe o ID de um inode, o nome de um arquivo e o ponteiro para uma estrutura
 // record, e então percorre todos os registros dentro do bloco de dados apontado
 // pelo inode, para encontrar o registro cujo nome seja igual ao do arquivo.
@@ -346,7 +351,7 @@ int getRecordByName(int inodeNumber, char *filename, RECORD* record) {
     printf("filename = %s\n", filename);
 
     while(getRecordByIndex(inodeNumber, index, record) == SUCCESS_CODE) {
-        printf("record name:%s\n", record->name);
+//        printf("record name:%s\n", record->name);
         if(strcmp(filename, record->name) == 0) {
             return SUCCESS_CODE;
         }
@@ -362,7 +367,6 @@ int getRecordByName(int inodeNumber, char *filename, RECORD* record) {
 // carrega os dados do registro que estão dentro desse bloco para dentro da
 // estrutura record.
 int getRecordByIndex(int iNodeId, int indexOfRecord, RECORD *record) {
-
     if(indexOfRecord < numberOfRecordsPerBlock) {
         INODE* inode = malloc(INODE_SIZE);
 
@@ -371,7 +375,6 @@ int getRecordByIndex(int iNodeId, int indexOfRecord, RECORD *record) {
             return ERROR_CODE;
         }
 
-        printf("Inode tamanho em bytes: %d\n", inode->bytesFileSize);
 
         BYTE blockBuffer[blockBufferSize];
         // @question Como tu sabe que os dados do registro estão no primeiro
@@ -380,7 +383,6 @@ int getRecordByIndex(int iNodeId, int indexOfRecord, RECORD *record) {
         getRecordOnBlockByPosition(blockBuffer, indexOfRecord % numberOfRecordsPerBlock, record);
 
         free(inode);
-        printf("Retornando um RECORD\n");
         return SUCCESS_CODE;
     }
     printf("[ERROR] Error while getting record.\n");
@@ -460,27 +462,27 @@ int allocInode() {
 }
 
 int allocBlock() {
-    int inodeId = searchBitmap2(DATA_BITMAP,FREE);
-    if(inodeId > 0){
-        setBitmap2(DATA_BITMAP,inodeId,OCCUPIED);
+    int blockId = searchBitmap2(DATA_BITMAP,FREE);
+    if(blockId > 0){
+        setBitmap2(DATA_BITMAP,blockId,OCCUPIED);
     }
-    return inodeId;
+    return blockId;
 }
 
 int appendRecordTooDirectory(int directoryInodeNumber, RECORD* record) {
   INODE* directoryInode = malloc(sizeof(INODE*));
   getInodeById(directoryInodeNumber, directoryInode);
-  BYTE *blockBuffer[blockBufferSize];
+  BYTE blockBuffer[blockBufferSize];
   getBlock(directoryInode->dataPtr[0], blockBuffer);
 
   int blockToWrite = directoryInode->blocksFileSize;
   if(blockToWrite == 1) {
-    blockBuffer[directoryInode->bytesFileSize] = record;
+//    blockBuffer[directoryInode->bytesFileSize] = record;
     writeBlock(directoryInode->dataPtr[0], blockBuffer);
 
     return SUCCESS_CODE;
   } else if(blockToWrite == 2) {
-    blockBuffer[directoryInode->bytesFileSize - blockBufferSize] = record;
+//    blockBuffer[directoryInode->bytesFileSize - blockBufferSize] = record;
     writeBlock(directoryInode->dataPtr[1], blockBuffer);
 
     return SUCCESS_CODE;
