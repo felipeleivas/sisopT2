@@ -1,3 +1,4 @@
+#cp t2fs_disk.dat src/t2fs_disk.dat
 cd src/
 gcc -c t2fs.c -Wall
 gcc -o t2fs.exe t2fs.o ../lib/apidisk.o  ../lib/bitmap2.o -Wall
