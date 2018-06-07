@@ -42,10 +42,21 @@ BYTE buffer[SECTOR_SIZE] = {0};
 int iNodeAreaOffset;
 int blockAreaOffset;
 int numberOfRecordsPerBlock;
-int rootInode;
+int rootInodeId;
+
+INODE *rootInode;
+RECORD *rootRecord;
+RECORD *actualDirectory; // Começa estando na root
+
 int blockBufferSize;
-//int i;
+
 ////////////////////////////////////////
+
+
+typedef struct nameNode {
+  char name[59];
+  struct nameNode *next;
+}nameNode;
 
 void initialize();
 int validName(char *filename);
@@ -59,7 +70,10 @@ int getRecordByIndex(int iNodeId, int indexOfRecord, RECORD *record);
 int getRecordByName(int inodeNumber, char *filename, RECORD* record);
 int writeBlock(int id, BYTE* blockBuffer);
 int assignBlockToInode(int blockIndex, int freeBlockId, INODE* inode );
-char** filenameTooNamesList(char *filename);
+nameNode* filenameTooNamesList(char *filename);
+void destroyNamesList(nameNode* namesList);
+int appendRecordTooDirectory(int inodeNumber, RECORD* record);
+
 
 WORD getWord(char leastSignificantByte, char mostSignificantByte){
     return ((WORD ) ((mostSignificantByte << 8) | leastSignificantByte));
@@ -93,24 +107,22 @@ unsigned int blockToSector(unsigned int block){
 
 //
 int main(){
-    FILE2 f = open2("file3");
+    FILE2 f = open2("/file3");
 //    char buffer[(1024 * 1024)]={0};
 //    read2(f,buffer,1);
-    int i;
-//    char *filename = "/teste/vini/deus/mestre.txt";
-//    char **names = filenameTooNamesList(filename);
-//    int flag = 0, counter = 0;
-//    printf("Entrei 222\n");
-//    while(flag == 0) {
-//      printf("Entrei\n");
-//      if(names[counter][0] == NULL) {
-//        printf("ENrrei FINAl\n");
-//        flag = 1;
-//      } else {
-//        printf("Palavra %d = %s", counter, names[counter]);
-//      }
-//    }
-//    return 0;
+
+/*
+    char *filename = "/teste/vini/deus/mestre.txt";
+    // Exemplo da função filenameTooNamesList
+    nameNode *names = filenameTooNamesList(filename);
+    nameNode *namesAux = names;
+    while(namesAux != NULL) {
+      printf("Nome: %s", namesAux->name);
+      namesAux = namesAux->next;
+    }
+    destroyNamesList(names); */
+    //////////////////////////////////////////
+
 }
 
 // Inicialização do Sistema
@@ -139,9 +151,26 @@ void initialize() {
                     + blockToSector(superBlock->superblockSize);
     blockAreaOffset = blockToSector(iNodeAreaOffset) + blockToSector(superBlock ->inodeAreaSize);
     read_sector(blockAreaOffset,buffer);
-    rootInode = getDoubleWord(buffer+60);
+    rootInodeId = getDoubleWord(buffer+60);
     blockBufferSize = SECTOR_SIZE * superBlock->blockSize;
     numberOfRecordsPerBlock = SECTOR_SIZE * superBlock->blockSize / RECORD_SIZE;
+
+    // Inicializar o i-node root
+    rootInode = malloc(sizeof(INODE));
+    rootInode->blocksFileSize = 1;
+    rootInode->bytesFileSize = 128;
+    rootInode->dataPtr[0] = 0;
+    rootInode->dataPtr[1] = INVALID_PTR;
+    rootInode->singleIndPtr = INVALID_PTR;
+    rootInode->doubleIndPtr = INVALID_PTR;
+
+    // Inicializar o record root
+    rootRecord = malloc(sizeof(RECORD));
+    rootRecord->TypeVal = TYPEVAL_DIRETORIO;
+    strcpy(rootRecord->name, "/");
+    rootRecord->inodeNumber = rootInodeId;
+
+    actualDirectory = rootRecord;
 
     int i;
     for(i=0;i<MAX_OPEN_FILES_SIMULTANEOUSLY;i++){
@@ -150,6 +179,8 @@ void initialize() {
         openFiles[i].inodeId=-1;
         openFiles[i].openBlockId=-1;
     }
+
+    printf("\nInitialized success!\n");
 
     initialized = TRUE;
 }
@@ -169,53 +200,66 @@ int validName(char *filename) {
 
 // Verifica se o nome do arquivo é um caminho absoluto
 int isAbsolutePath(char *filename) {
-  if(filename[0] == "/") {
+  if(filename[0] == '/') {
     return TRUE;
   } else {
     return FALSE;
   }
 }
 
-// Recebe um filename e transforma em uma lista de nomes. O último elemento é NULL.
-// Exemplo: recebe "/home/vini/deus/file.txt"
-//          retorna {"/", "home", "deus", "file.txt", NULL}
-char** filenameTooNamesList(char *filename) {
-  int i = 0, nameCounter = 0, characterCounter = 0;
+// Recebe um filename e transforma em uma lista de nomes.
+nameNode* filenameTooNamesList(char *filename) {
+  int i = 0, characterCounter = 0;
   int numberOfWords = 1, flag = 0;
-  for(i = 1; i < strlen(filename); i++) {
-    if(flag == 1) {
-      numberOfWords++;
-      flag = 0;
-    }
-    if(filename[i] == '/') {
-      flag = 1;
-    }
-  }
-  char names[numberOfWords][60];
-  printf("ENTREI 1 \n");
-  // Nome do diretório root
-  names[0][0] = '/';
-  names[0][1] = '\0';
-  nameCounter++;
-  printf("ENTREI 2 \n");
-  for(i = 1; i < strlen(filename); i++) {
+
+  nameNode *firstName = (nameNode *) malloc(sizeof(nameNode));
+  firstName->next = NULL;
+  firstName->name[0] = '/';
+  firstName->name[1] = '\0';
+
+  nameNode *actualName;
+  nameNode *auxName = (nameNode *) malloc(sizeof(nameNode));
+  actualName = firstName;
+
+  for(i = 1; i < strlen(filename) + 1; i++) {
 
     // Chegamos na próxima barra, logo, acabou o nome
     if(filename[i] == '/') {
-      names[nameCounter][characterCounter] = '\0';
-      nameCounter++;
+      auxName->name[characterCounter] = '\0';
+      actualName->next = auxName;
+      auxName->next = NULL;
+      actualName = auxName;
+      auxName = auxName->next;
+      auxName = (nameNode *) malloc(sizeof(nameNode));
+      characterCounter = 0;
+    } else if(filename[i] == '\0') {
+      auxName->name[characterCounter] = '\0';
+      actualName->next = auxName;
+      auxName->next = NULL;
+      actualName = auxName;
+      auxName = auxName->next;
+      auxName = (nameNode *) malloc(sizeof(nameNode));
       characterCounter = 0;
     } else {
       // Caractere não é barra, logo, faz parte do nome
-      names[nameCounter][characterCounter] = filename[i];
+      auxName->name[characterCounter] = filename[i];
       characterCounter ++;
     }
   }
 
-  names[nameCounter][0] = NULL;
-  return &names;
+  return firstName;
 }
 
+void destroyNamesList(nameNode* namesList) {
+  nameNode *namesAux = namesList;
+  nameNode *namesAux2 = namesAux;
+
+  while(namesAux != NULL) {
+    namesAux = namesAux->next;
+    free(namesAux2);
+    namesAux2 = namesAux;
+  }
+}
 // Recebe o ID do inode e um ponteiro para a estrutura de um inode,
 // localiza os dados desse inode no disco, e aloca esses dados para
 // a estrutura do inode recebida.
@@ -254,7 +298,7 @@ int writeInode(int id, INODE* inode) {
         printf("[ERROR] iNode out2 of bound\n");
     }
     read_sector(inodeSector, buffer);
-    memcpy(buffer + (INODE_SIZE * relativePossitionOnInodeBlock),dwordToBytes(inode->blocksFileSize), 4);
+    memcpy(buffer + (INODE_SIZE * relativePossitionOnInodeBlock), dwordToBytes(inode->blocksFileSize), 4);
     memcpy(buffer + (INODE_SIZE * relativePossitionOnInodeBlock) + 4, dwordToBytes(inode->bytesFileSize), 4);
     memcpy(buffer + (INODE_SIZE * relativePossitionOnInodeBlock) + 8, dwordToBytes(inode->dataPtr[0]), 4);
     memcpy(buffer + (INODE_SIZE * relativePossitionOnInodeBlock) + 12, dwordToBytes(inode->dataPtr[1]), 4);
@@ -298,7 +342,11 @@ int writeBlock(int id, BYTE* blockBuffer) {
 // record.
 int getRecordByName(int inodeNumber, char *filename, RECORD* record) {
     int index = 0;
+    printf("InodeNumber = %d\n", inodeNumber);
+    printf("filename = %s\n", filename);
+
     while(getRecordByIndex(inodeNumber, index, record) == SUCCESS_CODE) {
+        printf("record name:%s\n", record->name);
         if(strcmp(filename, record->name) == 0) {
             return SUCCESS_CODE;
         }
@@ -323,6 +371,8 @@ int getRecordByIndex(int iNodeId, int indexOfRecord, RECORD *record) {
             return ERROR_CODE;
         }
 
+        printf("Inode tamanho em bytes: %d\n", inode->bytesFileSize);
+
         BYTE blockBuffer[blockBufferSize];
         // @question Como tu sabe que os dados do registro estão no primeiro
         // bloco de dados apontados pelo inode?
@@ -330,7 +380,7 @@ int getRecordByIndex(int iNodeId, int indexOfRecord, RECORD *record) {
         getRecordOnBlockByPosition(blockBuffer, indexOfRecord % numberOfRecordsPerBlock, record);
 
         free(inode);
-
+        printf("Retornando um RECORD\n");
         return SUCCESS_CODE;
     }
     printf("[ERROR] Error while getting record.\n");
@@ -417,38 +467,100 @@ int allocBlock() {
     return inodeId;
 }
 
+int appendRecordTooDirectory(int directoryInodeNumber, RECORD* record) {
+  INODE* directoryInode = malloc(sizeof(INODE*));
+  getInodeById(directoryInodeNumber, directoryInode);
+  BYTE *blockBuffer[blockBufferSize];
+  getBlock(directoryInode->dataPtr[0], blockBuffer);
+
+  int blockToWrite = directoryInode->blocksFileSize;
+  if(blockToWrite == 1) {
+    blockBuffer[directoryInode->bytesFileSize] = record;
+    writeBlock(directoryInode->dataPtr[0], blockBuffer);
+
+    return SUCCESS_CODE;
+  } else if(blockToWrite == 2) {
+    blockBuffer[directoryInode->bytesFileSize - blockBufferSize] = record;
+    writeBlock(directoryInode->dataPtr[1], blockBuffer);
+
+    return SUCCESS_CODE;
+  } else {
+    printf("ainda n feito");
+    return ERROR_CODE;
+  }
+
+  return ERROR_CODE;
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 int create2(char *filename){
-//    if(initialized == FALSE){
-//        initialize();
-//    }
-//
-//    if(validName(filename) != TRUE){
-//        printf("Error with filename");
-//        return ERROR_CODE;
-//    }
-//    INODE* inode = malloc(sizeof(INODE*));
-//    inode->blocksFileSize = 0;
-//    inode->bytesFileSize = 34;
-//    inode->dataPtr[0] = INVALID_PTR;
-//    inode->singleIndPtr = INVALID_PTR;
-//    inode->doubleIndPtr = INVALID_PTR;
-//
-    int inodeId = searchBitmap2(DATA_BITMAP,FREE);
-//    if(writeInode(inodeId,inode) != SUCCESS_CODE){
-//        printf("error writing inode");
-//        return ERROR_CODE;
-//    }
-//
-//    setBitmap2(INODE_BITMAP,inodeId,OCCUPIED);
-//
-//    RECORD* record = malloc(sizeof(RECORD*));
-//    strcpy(record->name,filename);
-//    record->TypeVal = TYPEVAL_REGULAR;
-//    record->inodeNumber = inodeId;
+    if(initialized == FALSE){
+        initialize();
+    }
 
-    return inodeId;
+    if(validName(filename) != TRUE){
+        printf("Error with filename");
+        return ERROR_CODE;
+    }
+
+    // Criação de um novo INODE
+    INODE* inode = malloc(sizeof(INODE*));
+    inode->blocksFileSize = 0;
+    inode->bytesFileSize = 0;
+    inode->dataPtr[0] = INVALID_PTR;
+    inode->dataPtr[1] = INVALID_PTR;
+    inode->singleIndPtr = INVALID_PTR;
+    inode->doubleIndPtr = INVALID_PTR;
+
+    // Procurar pelo inode livre no BITMAP
+    int inodeId = searchBitmap2(INODE_BITMAP, FREE);
+    if(writeInode(inodeId, inode) != SUCCESS_CODE){
+        printf("[ERROR] error writing inode");
+        return ERROR_CODE;
+    }
+    setBitmap2(INODE_BITMAP, inodeId, OCCUPIED);
+    // inode gravado no disco e setado como ocupado.
+
+    // Criação da entrada do arquivo.
+    RECORD* record = malloc(sizeof(RECORD*));
+    strcpy(record->name, filename);
+    record->TypeVal = TYPEVAL_REGULAR;
+    record->inodeNumber = inodeId;
+
+    // Gravar a entrada do arquivo nos dados do diretório.
+    if(isAbsolutePath(filename)) {
+
+      // Arquivo será gravado nos dados do diretório absoluto.
+      // Encontrar a entrada do diretorio dado pelo pathname.
+      nameNode *namesList = filenameTooNamesList(filename);
+      nameNode *namesAux = namesList;
+      RECORD* recordAux = malloc(sizeof(RECORD*));
+      int actualInodeId = rootInodeId;
+      while(namesAux->next != NULL) {
+        getRecordByName(actualInodeId, namesAux->name, recordAux);
+        actualInodeId = recordAux->inodeNumber;
+        namesAux = namesAux->next;
+      }
+
+      // Aqui, recordAux deve conter a entrada do diretório onde o arquivo será criado.
+      if(appendRecordTooDirectory(recordAux->inodeNumber, record) == SUCCESS_CODE) {
+        return inodeId;
+      } else {
+        printf("[ERROR] Error in create2.\n");
+        return ERROR_CODE;
+      }
+
+    } else {
+
+      // Arquivo será gravado nos dados do diretório atual.
+      if(appendRecordTooDirectory(actualDirectory->inodeNumber, record) == SUCCESS_CODE) {
+        return inodeId;
+      } else {
+        printf("[ERROR] Error in create2.\n");
+        return ERROR_CODE;
+      }
+    }
 }
 
 int identify2 (char *name, int size){
@@ -465,32 +577,47 @@ FILE2 open2 (char *filename) {
         initialize();
     }
 
+    int openFileIndex;
+
     if(isAbsolutePath(filename)) {
-      char **directoryNames = filenameTooNamesList(filename);
+      nameNode *namesList = filenameTooNamesList(filename);
+      RECORD *record = malloc(RECORD_SIZE);
+      nameNode *namesAux = namesList;
+      int inodeId = rootInodeId;
+
+      while(namesAux != NULL) {
+        getRecordByName(inodeId, namesAux->name, record);
+        inodeId = record->inodeNumber;
+        namesAux = namesAux->next;
+        printf("\nNome atual: %s\n", record->name);
+      }
+
+      // Ao sair desse while, record deve conter a entrada do arquivo desejado.
+      printf("Nome do arquivo desejado: %s, nome do arquivo encontrado: %s\n", filename, record->name);
+
+      openFileIndex = getOpenFileStruct();
+      if(record->TypeVal != TYPEVAL_REGULAR){
+          printf("Can't open these kind of file\n");
+      }
+
+      if(openFileIndex == ERROR_CODE){
+          printf("Maximum number of open files reached\n");
+          return ERROR_CODE;
+      }
+
+      INODE* inode = malloc(INODE_SIZE);
+      getInodeById(record->inodeNumber, inode);
+      openFiles[openFileIndex].active = TRUE;
+      openFiles[openFileIndex].inodeId = record->inodeNumber;
+      openFiles[openFileIndex].openBlockId = inode->dataPtr[0];
+      openFiles[openFileIndex].currentPointer = 0;
+
+      free(inode);
+      free(record);
     } else {
 
     }
 
-
-    RECORD *record = malloc(RECORD_SIZE);
-    getRecordByName(rootInode, filename, record);
-    int openFileIndex = getOpenFileStruct();
-    if(record->TypeVal != TYPEVAL_REGULAR){
-        printf("Can't open these kind of file\n");
-    }
-    if(openFileIndex == ERROR_CODE){
-        printf("Maximum number of open files reached\n");
-        return ERROR_CODE;
-    }
-    INODE* inode = malloc(INODE_SIZE);
-    getInodeById(record->inodeNumber,inode);
-    openFiles[openFileIndex].active = TRUE;
-    openFiles[openFileIndex].inodeId = record->inodeNumber;
-    openFiles[openFileIndex].openBlockId = inode->dataPtr[0];
-    openFiles[openFileIndex].currentPointer = 0;
-
-    free(inode);
-    free(record);
     return openFileIndex;
 }
 
