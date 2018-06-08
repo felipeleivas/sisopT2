@@ -143,6 +143,8 @@ int main(){
 //    for(i = (1024 * 257 * 0); i <(k) - 1; i++){
 //            printf("%c ",auxBuffer[i]);
 //    }
+//
+    int inodeId = create2("novafile");
     return 0;
 }
 
@@ -459,7 +461,7 @@ int getNextBlockId(int lastBlockIndex, INODE *inode) {
 }
 
 int allocInode() {
-    int inodeId = searchBitmap2(INODE_BITMAP,FREE);
+    int inodeId = searchBitmap2(INODE_BITMAP, FREE);
     if(inodeId > 0) {
         setBitmap2(INODE_BITMAP,inodeId,OCCUPIED);
     }
@@ -477,18 +479,58 @@ int allocBlock() {
 int appendRecordTooDirectory(int directoryInodeNumber, RECORD* record) {
   INODE* directoryInode = malloc(sizeof(INODE*));
   getInodeById(directoryInodeNumber, directoryInode);
-  BYTE blockBuffer[blockBufferSize];
-  getBlock(directoryInode->dataPtr[0], blockBuffer);
+  BYTE buffer[blockBufferSize];
+
+  printf("\nEntrei na append\n");
 
   int blockToWrite = directoryInode->blocksFileSize;
-  if(blockToWrite == 1) {
-//    blockBuffer[directoryInode->bytesFileSize] = record;
-    writeBlock(directoryInode->dataPtr[0], blockBuffer);
+  int relativePossitionOnDataBlock;
+  if((blockToWrite == 1) && (directoryInode->bytesFileSize < blockBufferSize)) {
+    printf("[append] Entrei no primeiro bloco de dados do arquivo e diretório.\n");
+    getBlock(directoryInode->dataPtr[0], buffer);
+    relativePossitionOnDataBlock = directoryInode->bytesFileSize;
+    memcpy(buffer + relativePossitionOnDataBlock, record->TypeVal, 1);
+    memcpy(buffer + relativePossitionOnDataBlock + 1, dwordToBytes(record->name[0]), 4);
+    memcpy(buffer + relativePossitionOnDataBlock + 5, dwordToBytes(record->name[4]), 4);
+    memcpy(buffer + relativePossitionOnDataBlock + 9, dwordToBytes(record->name[8]), 4);
+    memcpy(buffer + relativePossitionOnDataBlock + 13, dwordToBytes(record->name[12]), 4);
+    memcpy(buffer + relativePossitionOnDataBlock + 17, dwordToBytes(record->name[16]), 4);
+    memcpy(buffer + relativePossitionOnDataBlock + 21, dwordToBytes(record->name[20]), 4);
+    memcpy(buffer + relativePossitionOnDataBlock + 25, dwordToBytes(record->name[24]), 4);
+    memcpy(buffer + relativePossitionOnDataBlock + 29, dwordToBytes(record->name[28]), 4);
+    memcpy(buffer + relativePossitionOnDataBlock + 33, dwordToBytes(record->name[32]), 4);
+    memcpy(buffer + relativePossitionOnDataBlock + 37, dwordToBytes(record->name[36]), 4);
+    memcpy(buffer + relativePossitionOnDataBlock + 41, dwordToBytes(record->name[40]), 4);
+    memcpy(buffer + relativePossitionOnDataBlock + 45, dwordToBytes(record->name[44]), 4);
+    memcpy(buffer + relativePossitionOnDataBlock + 49, dwordToBytes(record->name[48]), 4);
+    memcpy(buffer + relativePossitionOnDataBlock + 53, dwordToBytes(record->name[52]), 4);
+    buffer[relativePossitionOnDataBlock + 57] = record->name[56];
+    buffer[relativePossitionOnDataBlock + 58] = record->name[57];
+    buffer[relativePossitionOnDataBlock + 59] = record->name[58];
+    memcpy(buffer + relativePossitionOnDataBlock + 60, dwordToBytes(record->inodeNumber), 4);
+    writeBlock(directoryInode->dataPtr[0], buffer);
+
+
+
+    printf("[append] Gravei a entrada no primeiro bloco de dados do arquivo de diretório.\n");
+
+    printf("[append] Vou tentar ler o record 0.\n");
+    getBlock(directoryInode->dataPtr[0], buffer);
+    RECORD *recordAux = malloc(sizeof(RECORD*));
+    getRecordOnBlockByPosition(buffer, 0, recordAux);
+    printf("record name: %s", recordAux->name);
+    printf("[append] Vou tentar ler o record 1.\n");
+    getRecordOnBlockByPosition(buffer, 1, recordAux);
+    printf("record name: %s", recordAux->name);
+    printf("[append] Vou tentar ler o record 2.\n");
+    getRecordOnBlockByPosition(buffer, 2, recordAux);
+    printf("record name: %s", recordAux->name);
 
     return SUCCESS_CODE;
-  } else if(blockToWrite == 2) {
+  } else if((blockToWrite == 2) && (directoryInode->bytesFileSize < (2 * blockBufferSize))) {
+    getBlock(directoryInode->dataPtr[1], buffer);
 //    blockBuffer[directoryInode->bytesFileSize - blockBufferSize] = record;
-    writeBlock(directoryInode->dataPtr[1], blockBuffer);
+    writeBlock(directoryInode->dataPtr[1], buffer);
 
     return SUCCESS_CODE;
   } else {
@@ -496,20 +538,22 @@ int appendRecordTooDirectory(int directoryInodeNumber, RECORD* record) {
     return ERROR_CODE;
   }
 
+
   return ERROR_CODE;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 int create2(char *filename){
+    printf("Entrei na create.\n");
     if(initialized == FALSE){
         initialize();
     }
-
-    if(validName(filename) != TRUE){
-        printf("Error with filename");
-        return ERROR_CODE;
-    }
+    printf("\n\n\nInicializei\n\n\n");
+    //if(validName(filename) != TRUE){
+    //    printf("Error with filename");
+    //    return ERROR_CODE;
+    //}
 
     // Criação de um novo INODE
     INODE* inode = malloc(sizeof(INODE*));
@@ -519,16 +563,17 @@ int create2(char *filename){
     inode->dataPtr[1] = INVALID_PTR;
     inode->singleIndPtr = INVALID_PTR;
     inode->doubleIndPtr = INVALID_PTR;
-
+    printf("\n\n\n Criei inode\n\n\n");
     // Procurar pelo inode livre no BITMAP
     int inodeId = searchBitmap2(INODE_BITMAP, FREE);
+    printf("\n\nInode ID FREE: %d\n\n", inodeId);
     if(writeInode(inodeId, inode) != SUCCESS_CODE){
         printf("[ERROR] error writing inode");
         return ERROR_CODE;
     }
     setBitmap2(INODE_BITMAP, inodeId, OCCUPIED);
     // inode gravado no disco e setado como ocupado.
-
+    printf("\n\n\n Gravei inode\n\n\n");
     // Criação da entrada do arquivo.
     RECORD* record = malloc(sizeof(RECORD*));
     strcpy(record->name, filename);
@@ -536,6 +581,7 @@ int create2(char *filename){
     record->inodeNumber = inodeId;
 
     // Gravar a entrada do arquivo nos dados do diretório.
+    // DELETAR ISSO
     if(isAbsolutePath(filename)) {
 
       // Arquivo será gravado nos dados do diretório absoluto.
