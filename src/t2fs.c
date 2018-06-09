@@ -37,16 +37,16 @@ typedef struct {
 ////////////////// Global Variables
 OPEN_FILE openFiles[MAX_OPEN_FILES_SIMULTANEOUSLY];
 int initialized = FALSE;
-SUPERBLOCK* superBlock;
+SUPERBLOCK superBlock;
 // BYTE buffer[SECTOR_SIZE] = {0};
 int iNodeAreaOffset;
 int blockAreaOffset;
 int numberOfRecordsPerBlock;
 int rootInodeId;
 
-INODE *rootInode;
-RECORD *rootRecord;
-RECORD *actualDirectory; // Começa estando na root
+INODE rootInode;
+RECORD rootRecord;
+RECORD actualDirectory; // Começa estando na root
 
 int blockBufferSize;
 
@@ -87,56 +87,56 @@ DWORD getDoubleWord(BYTE *leastSignificantByteWord1){//, char mostSignificantByt
 
 BYTE* wordToBytes(WORD word) {
     BYTE *bytes = malloc(2*sizeof(*bytes));
+    // BYTE bytes[2];
     bytes[0] =  word & 0x00FF;
     bytes[1] = (word & 0xFF00) >> 8;
     return bytes;
 }
 
 BYTE* dwordToBytes(DWORD dword) {
-    BYTE *bytes = malloc(4*sizeof(*bytes));
+    // BYTE *bytes = malloc(4*sizeof(*bytes));
+    static BYTE bytes[4 * sizeof(BYTE)];
     bytes[0] =  dword & 0x00FF;
     bytes[1] = (dword & 0xFF00) >> 8;
     bytes[2] = (dword & 0xFF0000) >> 16;
     bytes[3] = (dword & 0xFF000000) >> 24;
+int i;
+    for(i = 0 ; i <4;i++){
+        printf("%d ",bytes[i]);
+    }
     return bytes;
 }
 
 
 // Recebe o ID do bloco e retorna o setor do disco que ele está.
 unsigned int blockToSector(unsigned int block){
-    return block * superBlock->blockSize;
+    return block * superBlock.blockSize;
 }
 
 //
 int main(){
-    int bufferSize = 1024 * 1024;
-    char auxBuffer2[1024 * 1024] = {0};
-    char auxBuffer[1024 * 1024] = {0};
+    char *t;
+    strcpy(dwordToBytes(3),t);
+    puts("");
+    int i;    
+    for(i = 0 ; i <4;i++){
+        printf("%d ",t[i]);
+    }
+    puts("");
+    // int bufferSize = 1024 * 1024;
+    // char auxBuffer2[1024 * 1024] = {0};
+    // char auxBuffer[1024 * 1024] = {0};
 
-    int i;
-    // int GOING_TO_WRITE = FALSE;
+    // int i;
 
-    // read2(f2,auxBuffer2, bufferSize);
-    
-    // read2(f,auxBuffer2, bufferSize);
-    
-    int numberOfFreeBlocks = countFreeBlocks();
-    numberOfFreeBlocks = countFreeBlocks();
-    numberOfFreeBlocks = countFreeBlocks();
-    numberOfFreeBlocks = countFreeBlocks();
-// read_sector(0,buffer);
-    printf("BEFORE INITIALIZE There is %d free blocks\n",numberOfFreeBlocks);
-    numberOfFreeBlocks = countFreeBlocks();
-    initialize();
-    numberOfFreeBlocks = countFreeBlocks();
-    printf("AFTER: There is %d free blocks\n",numberOfFreeBlocks);
-
+    // int numberOfFreeBlocks = countFreeBlocks();
+    // printf("There is %d free blocks\n",numberOfFreeBlocks);
 
     // FILE2 f2 = open2("file3");
-    // int numberOfBytsToWrite = (1024 * (258 + (256 * 2)) * 0) + 1; 
+    // int numberOfBytsToWrite = (1024 * (258 + (256 * 2)) * 1) + 1; 
     // int x =read2(f2,auxBuffer2,numberOfBytsToWrite);
     // for(i=0; i<50; i++){
-    //     // printf("%c",auxBuffer2[i]);
+    //     printf("%c",auxBuffer2[i]);
     // }
     // puts("");   
     // // printf("\n ------ponteiro do arquivo antes do seek2: %d offset: %d\n",openFiles[f2].currentPointer, numberOfBytsToWrite);
@@ -182,74 +182,59 @@ int main(){
     return 0;
 }
     int countFreeBlocks(){
-        // if(initialized == FALSE){
-        //     // initialize();
-        // }
+        if(initialized == FALSE){
+            initialize();
+        }
         int i = 0;
         int count = 0;
-        int x = 32;
-        // for (i=1024 * x; i<1024 * (1 + x);i++){
-        for (i=64 * x; i<64 * (1 + x);i++){
+        for (i=0; i<superBlock.diskSize;i++){
             if(getBitmap2(DATA_BITMAP,i) == FREE){
                 count++;
             }
 
-            printf("%d", getBitmap2(DATA_BITMAP,i) );
         }
-        puts("");
         return count;
     }
 // Inicialização do Sistema
 void initialize() {
-    
-    int numberOfFreeBlocks = countFreeBlocks();
-    printf("BEFORE malloc :There is %d free blocks\n",numberOfFreeBlocks);
-    // superBlock = malloc(sizeof(*superBlock));
-    int *asdadi = malloc(sizeof(int) * 2);
-    numberOfFreeBlocks   = countFreeBlocks();
-    printf("AFTER MALLOC: There is %d free blocks\n",numberOfFreeBlocks);
-    
-    if(!superBlock) {
-        printf("Malloc error\n");
-        return;
-    }
+        
     BYTE buffer[SECTOR_SIZE];
     if(read_sector(SUPER_BLOCK_AREA, buffer) != 0) {
         printf("Read error\n");
         return;
     }
    
-    memcpy(superBlock->id,buffer,4);
-    superBlock->version = getWord(buffer[4],buffer[5]);
-    superBlock->superblockSize = getWord(buffer[6],buffer[7]);
-    superBlock->freeBlocksBitmapSize = getWord(buffer[8],buffer[9]);
-    superBlock->freeInodeBitmapSize = getWord(buffer[10],buffer[11]);
-    superBlock->inodeAreaSize = getWord(buffer[12],buffer[13]);
-    superBlock->blockSize = getWord(buffer[14],buffer[15]);
-    superBlock->diskSize = getDoubleWord(buffer+16);
-    iNodeAreaOffset = blockToSector(superBlock->freeBlocksBitmapSize)
-                    + blockToSector(superBlock->freeInodeBitmapSize)
-                    + blockToSector(superBlock->superblockSize);
-    blockAreaOffset = blockToSector(iNodeAreaOffset) + blockToSector(superBlock ->inodeAreaSize);
+    memcpy(superBlock.id,buffer,4);
+    superBlock.version = getWord(buffer[4],buffer[5]);
+    superBlock.superblockSize = getWord(buffer[6],buffer[7]);
+    superBlock.freeBlocksBitmapSize = getWord(buffer[8],buffer[9]);
+    superBlock.freeInodeBitmapSize = getWord(buffer[10],buffer[11]);
+    superBlock.inodeAreaSize = getWord(buffer[12],buffer[13]);
+    superBlock.blockSize = getWord(buffer[14],buffer[15]);
+    superBlock.diskSize = getDoubleWord(buffer+16);
+    iNodeAreaOffset = blockToSector(superBlock.freeBlocksBitmapSize)
+                    + blockToSector(superBlock.freeInodeBitmapSize)
+                    + blockToSector(superBlock.superblockSize);
+    blockAreaOffset = blockToSector(iNodeAreaOffset) + blockToSector(superBlock.inodeAreaSize);
     read_sector(blockAreaOffset,buffer);
     rootInodeId = getDoubleWord(buffer+60);
-    blockBufferSize = SECTOR_SIZE * superBlock->blockSize;
-    numberOfRecordsPerBlock = SECTOR_SIZE * superBlock->blockSize / RECORD_SIZE;
+    blockBufferSize = SECTOR_SIZE * superBlock.blockSize;
+    numberOfRecordsPerBlock = SECTOR_SIZE * superBlock.blockSize / RECORD_SIZE;
 
     // Inicializar o i-node root
-    rootInode = malloc(sizeof(INODE));
-    rootInode->blocksFileSize = 1;
-    rootInode->bytesFileSize = 128;
-    rootInode->dataPtr[0] = 0;
-    rootInode->dataPtr[1] = INVALID_PTR;
-    rootInode->singleIndPtr = INVALID_PTR;
-    rootInode->doubleIndPtr = INVALID_PTR;
+    // rootInode = malloc(sizeof(INODE));
+    rootInode.blocksFileSize = 1;
+    rootInode.bytesFileSize = 128;
+    rootInode.dataPtr[0] = 0;
+    rootInode.dataPtr[1] = INVALID_PTR;
+    rootInode.singleIndPtr = INVALID_PTR;
+    rootInode.doubleIndPtr = INVALID_PTR;
 
     // Inicializar o record root
-    rootRecord = malloc(sizeof(RECORD));
-    rootRecord->TypeVal = TYPEVAL_DIRETORIO;
-    strcpy(rootRecord->name, "/");
-    rootRecord->inodeNumber = rootInodeId;
+    // rootRecord = malloc(sizeof(RECORD));
+    rootRecord.TypeVal = TYPEVAL_DIRETORIO;
+    strcpy(rootRecord.name, "/");
+    rootRecord.inodeNumber = rootInodeId;
 
     actualDirectory = rootRecord;
 
@@ -293,6 +278,7 @@ nameNode* filenameTooNamesList(char *filename) {
 //  int numberOfWords = 1, flag = 0;
 
   nameNode *firstName = (nameNode *) malloc(sizeof(nameNode));
+
   firstName->next = NULL;
   firstName->name[0] = '/';
   firstName->name[1] = '\0';
@@ -379,14 +365,32 @@ int writeInode(int id, INODE* inode) {
         printf("[ERROR] iNode out2 of bound\n");
     }
     read_sector(inodeSector, buffer);
-    memcpy(buffer + (INODE_SIZE * relativePossitionOnInodeBlock), dwordToBytes(inode->blocksFileSize), 4);
-    memcpy(buffer + (INODE_SIZE * relativePossitionOnInodeBlock) + 4, dwordToBytes(inode->bytesFileSize), 4);
-    memcpy(buffer + (INODE_SIZE * relativePossitionOnInodeBlock) + 8, dwordToBytes(inode->dataPtr[0]), 4);
-    memcpy(buffer + (INODE_SIZE * relativePossitionOnInodeBlock) + 12, dwordToBytes(inode->dataPtr[1]), 4);
-    memcpy(buffer + (INODE_SIZE * relativePossitionOnInodeBlock) + 16, dwordToBytes(inode->singleIndPtr), 4);
-    memcpy(buffer + (INODE_SIZE * relativePossitionOnInodeBlock) + 20, dwordToBytes(inode->doubleIndPtr), 4);
-    memcpy(buffer + (INODE_SIZE * relativePossitionOnInodeBlock) + 24, dwordToBytes(inode->reservado[0]), 4);
-    memcpy(buffer + (INODE_SIZE * relativePossitionOnInodeBlock) + 28, dwordToBytes(inode->reservado[1]), 4);
+
+    char aux[4];
+    
+    dwordToBytes(inode->blocksFileSize,aux);
+    memcpy(buffer + (INODE_SIZE * relativePossitionOnInodeBlock) + 0,  aux, 4);
+    
+    dwordToBytes(inode->bytesFileSize,aux);
+    memcpy(buffer + (INODE_SIZE * relativePossitionOnInodeBlock) + 4,  aux, 4);
+    
+    dwordToBytes(inode->dataPtr[0],aux);
+    memcpy(buffer + (INODE_SIZE * relativePossitionOnInodeBlock) + 8,  aux, 4);
+    
+    dwordToBytes(inode->dataPtr[1],aux); 
+    memcpy(buffer + (INODE_SIZE * relativePossitionOnInodeBlock) + 12, aux, 4);
+    
+    dwordToBytes(inode->singleIndPtr,aux);
+    memcpy(buffer + (INODE_SIZE * relativePossitionOnInodeBlock) + 16, aux, 4);
+    
+    dwordToBytes(inode->doubleIndPtr,aux);
+    memcpy(buffer + (INODE_SIZE * relativePossitionOnInodeBlock) + 20, aux, 4);
+    
+    dwordToBytes(inode->reservado[0],aux);
+    memcpy(buffer + (INODE_SIZE * relativePossitionOnInodeBlock) + 24, aux, 4);
+    
+    dwordToBytes(inode->reservado[1],aux);
+    memcpy(buffer + (INODE_SIZE * relativePossitionOnInodeBlock) + 28, aux, 4);
 
     return write_sector(inodeSector, buffer);
 }
@@ -396,7 +400,7 @@ int writeInode(int id, INODE* inode) {
 int getBlock(int id, BYTE* blockBuffer) {
     BYTE buffer[SECTOR_SIZE];
     int i = 0;
-    for(i = 0; i < superBlock->blockSize; i++) {
+    for(i = 0; i < superBlock.blockSize; i++) {
         if(read_sector(blockToSector(id) + i, buffer) != 0) {
 
             printf("[ERROR] Error while reading block data. %d\n",id);
@@ -412,7 +416,7 @@ int getBlock(int id, BYTE* blockBuffer) {
 int writeBlock(int id, BYTE* blockBuffer) {
     BYTE buffer[SECTOR_SIZE];
     int i = 0;
-    for(i = 0; i < superBlock->blockSize; i++){
+    for(i = 0; i < superBlock.blockSize; i++){
         memcpy(buffer,blockBuffer + (i * SECTOR_SIZE), SECTOR_SIZE);
         write_sector(blockToSector(id) + i, buffer);
     }
@@ -445,9 +449,10 @@ int getRecordByName(int inodeNumber, char *filename, RECORD* record) {
 // estrutura record.
 int getRecordByIndex(int iNodeId, int indexOfRecord, RECORD *record) {
     if(indexOfRecord < numberOfRecordsPerBlock) {
-        INODE* inode = malloc(INODE_SIZE);
+        // INODE* inode = malloc(INODE_SIZE);
+        INODE inode;
 
-        if(getInodeById(iNodeId, inode) != SUCCESS_CODE) {
+        if(getInodeById(iNodeId, &inode) != SUCCESS_CODE) {
             printf("[ERROR] Error at getting inode on getRecordByIndex\n");
             return ERROR_CODE;
         }
@@ -456,10 +461,10 @@ int getRecordByIndex(int iNodeId, int indexOfRecord, RECORD *record) {
         BYTE blockBuffer[blockBufferSize];
         // @question Como tu sabe que os dados do registro estão no primeiro
         // bloco de dados apontados pelo inode?
-        getBlock(inode->dataPtr[0], blockBuffer);
+        getBlock(inode.dataPtr[0], blockBuffer);
         getRecordOnBlockByPosition(blockBuffer, indexOfRecord % numberOfRecordsPerBlock, record);
 
-        free(inode);
+        // free(inode);
         return SUCCESS_CODE;
     }
     printf("[ERROR] Error while getting record.\n");
@@ -627,7 +632,7 @@ int create2(char *filename){
     } else {
 
       // Arquivo será gravado nos dados do diretório atual.
-      if(appendRecordTooDirectory(actualDirectory->inodeNumber, record) == SUCCESS_CODE) {
+      if(appendRecordTooDirectory(actualDirectory.inodeNumber, record) == SUCCESS_CODE) {
         return inodeId;
       } else {
         printf("[ERROR] Error in create2.\n");
@@ -653,13 +658,14 @@ FILE2 open2 (char *filename) {
     int openFileIndex;
 
     if(isAbsolutePath(filename) || TRUE) {
-      nameNode *namesList = filenameTooNamesList(filename);
-      RECORD *record = malloc(RECORD_SIZE);
-      nameNode *namesAux = namesList;
+      // nameNode *namesList = filenameTooNamesList(filename);
+      // RECORD *record = malloc(RECORD_SIZE);
+        RECORD record;
+      // nameNode *namesAux = namesList;
       int inodeId = rootInodeId;
 
 //      while(namesAux != NULL) {
-        getRecordByName(inodeId, filename, record);
+        getRecordByName(inodeId, filename, &record);
 //        getRecordByName(inodeId, namesAux->name, record);
 //        inodeId = record->inodeNumber;
 //        namesAux = namesAux->next;
@@ -668,7 +674,7 @@ FILE2 open2 (char *filename) {
 
 
       openFileIndex = getOpenFileStruct();
-      if(record->TypeVal != TYPEVAL_REGULAR){
+      if(record.TypeVal != TYPEVAL_REGULAR){
           printf("Can't open these kind of file\n");
       }
 
@@ -677,16 +683,17 @@ FILE2 open2 (char *filename) {
           return ERROR_CODE;
       }
 
-      INODE* inode = malloc(INODE_SIZE);
-      getInodeById(record->inodeNumber, inode);
+      INODE inode;
+      // INODE* inode = malloc(INODE_SIZE);
+      getInodeById(record.inodeNumber, &inode);
 
       openFiles[openFileIndex].active = TRUE;
-      openFiles[openFileIndex].inodeId = record->inodeNumber;
-      openFiles[openFileIndex].openBlockId = inode->dataPtr[0];
+      openFiles[openFileIndex].inodeId = record.inodeNumber;
+      openFiles[openFileIndex].openBlockId = inode.dataPtr[0];
       openFiles[openFileIndex].currentPointer = 0;
 
-      free(inode);
-      free(record);
+      // free(inode);
+      // free(record);
     } else {
 
     }
@@ -705,18 +712,17 @@ int read2 (FILE2 handle, char *buffer, int size){
     int currentPointerOffset = openFiles[handle].currentPointer;
     int currentBlockOffset = currentPointerOffset/blockBufferSize;
     int blockCurrentPointerOffset = (currentPointerOffset % blockBufferSize);
-    INODE* inode = malloc(INODE_SIZE);
+    // INODE* inode = malloc(INODE_SIZE);
+    INODE inode;
     int numOfBytesReaded;
-    getInodeById(openFiles[handle].inodeId,inode);
-    // printf("antes %d %d %d\n",inode->bytesFileSize, currentPointerOffset, openFiles[handle].currentPointer);
-
+    getInodeById(openFiles[handle].inodeId,&inode);
 
     if(openFiles[handle].openBlockId == INVALID_PTR){
         printf("[ERROR] Error while reading the file, the pointer to the block was an invalid pointer\n");
     }
 
-    if(inode->bytesFileSize < currentPointerOffset + size){
-        size = inode->bytesFileSize - currentPointerOffset;
+    if(inode.bytesFileSize < currentPointerOffset + size){
+        size = inode.bytesFileSize - currentPointerOffset;
     }
     numOfBytesReaded = size;
 
@@ -731,7 +737,7 @@ int read2 (FILE2 handle, char *buffer, int size){
         currentPointerOffset += partSize;
         size -= partSize;
         blockCurrentPointerOffset = 0;
-        openFiles[handle].openBlockId = getNextBlockId(currentBlockOffset, inode);
+        openFiles[handle].openBlockId = getNextBlockId(currentBlockOffset, &inode);
         if(openFiles[handle].openBlockId == INVALID_PTR){
             printf("[ERROR] Error reading nextBlock\n");
             return  -1;
@@ -745,7 +751,7 @@ int read2 (FILE2 handle, char *buffer, int size){
 
     openFiles[handle].currentPointer = currentPointerOffset;
     // printf("dsadsadsa %d %d %d\n",inode->bytesFileSize, currentPointerOffset, openFiles[handle].currentPointer);
-    free(inode);
+    // free(inode);
     return numOfBytesReaded;
 }
 
@@ -757,12 +763,9 @@ int write2 (FILE2 handle, char *buffer, int size){
     int currentBlockOffset = currentPointerOffset/blockBufferSize;
     int blockCurrentPointerOffset = (currentPointerOffset%blockBufferSize);
 
-    INODE* inode = malloc(INODE_SIZE);
-    if(inode == NULL){
-        printf("Error malloc inode\n");
-        return ERROR_CODE;
-    }
-    getInodeById(openFiles[handle].inodeId,inode);
+    INODE inode;// = malloc(INODE_SIZE);
+    
+    getInodeById(openFiles[handle].inodeId,&inode);
 
     BYTE blockBuffer[blockBufferSize];
     int bufferOffset = 0;
@@ -778,7 +781,7 @@ int write2 (FILE2 handle, char *buffer, int size){
         blockCurrentPointerOffset = 0;
         size -= partSize;
 
-        openFiles[handle].openBlockId = getNextBlockId(currentBlockOffset, inode);
+        openFiles[handle].openBlockId = getNextBlockId(currentBlockOffset, &inode);
 
 
         if(openFiles[handle].openBlockId == 0){
@@ -791,9 +794,9 @@ int write2 (FILE2 handle, char *buffer, int size){
                 printf("Cannot find free space");
                 return ERROR_CODE;
             }
-            inode->blocksFileSize++;
+            inode.blocksFileSize++;
 
-            assignBlockToInode(currentBlockOffset + 1, freeBlockId, inode);
+            assignBlockToInode(currentBlockOffset + 1, freeBlockId, &inode);
 
             openFiles[handle].openBlockId = freeBlockId;
 
@@ -806,11 +809,11 @@ int write2 (FILE2 handle, char *buffer, int size){
     writeBlock(openFiles[handle].openBlockId,blockBuffer);
     currentPointerOffset += size;
 
-    if(currentPointerOffset > inode->bytesFileSize){
-        inode->bytesFileSize = currentPointerOffset;
+    if(currentPointerOffset > inode.bytesFileSize){
+        inode.bytesFileSize = currentPointerOffset;
     }
 
-    writeInode(openFiles[handle].inodeId, inode);
+    writeInode(openFiles[handle].inodeId, &inode);
     openFiles[handle].currentPointer = currentPointerOffset;
     return 0;
 }
@@ -871,18 +874,16 @@ int truncate2 (FILE2 handle){
     int currentPointerOffset = openFiles[handle].currentPointer;
     int currentBlockOffset = currentPointerOffset/blockBufferSize;
     
-    INODE* inode = malloc(INODE_SIZE);
-    if(inode == NULL){
-        printf("Error malloc inode\n");
-        return ERROR_CODE;
-    }
-    getInodeById(openFiles[handle].inodeId,inode);
-    desallocBlocksOfInode(currentBlockOffset +1, inode->blocksFileSize, inode);
+    INODE inode;// = malloc(INODE_SIZE);
     
-    inode->bytesFileSize = currentPointerOffset;
-    inode->blocksFileSize = currentBlockOffset + 1;
+    // 
+    getInodeById(openFiles[handle].inodeId,&inode);
+    desallocBlocksOfInode(currentBlockOffset +1, inode.blocksFileSize, &inode);
     
-    writeInode(openFiles[handle].inodeId, inode);
+    inode.bytesFileSize = currentPointerOffset;
+    inode.blocksFileSize = currentBlockOffset + 1;
+    
+    writeInode(openFiles[handle].inodeId, &inode);
     return 0;
 }
 
