@@ -14,5 +14,6 @@ gcc -o test_Write test_Write.o ../src/t2fs.o ../lib/apidisk.o  ../lib/bitmap2.o 
 echo -e "\nOutput of #main \n\n\n"
 ./test_Write
 rm test_Write
+rm test_Write.o
 rm ../src/t2fs.o
 cd ..
