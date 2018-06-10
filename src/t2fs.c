@@ -7,6 +7,8 @@
 #include "../include/t2fs.h"
 
 #define ERROR_CODE -1
+#define ERROR_CODE_FILE_NOT_FOUND -2
+#define ERROR_CODE_FILE_WRONG_PATH -3
 #define SUCCESS_CODE 0
 
 #define TRUE  1
@@ -113,7 +115,7 @@ BYTE *wordToBytes(WORD word, BYTE *bytes) {
     return bytes;
 }
 
-BYTE *dwordToBytes(DWORD dword, BYTE *bytes) {
+void dwordToBytes(DWORD dword, BYTE *bytes) {
     // BYTE *bytes = malloc(4*sizeof(*bytes));
     // static BYTE bytes[4 * sizeof(BYTE)];
     bytes[0] = dword & 0x00FF;
@@ -185,13 +187,21 @@ void initialize() {
 
 // Verificação do nome do arquivo
 int validName(char *filename) {
-    int i;
-    for (i = 0; i < strlen(filename); i++) {
-        if (!((('0' <= filename[i]) && (filename[i] <= '9')) ||
-              (('a' <= filename[i]) && (filename[i] <= 'z')) ||
-              (('A' <= filename[i]) && (filename[i] <= 'Z')))) {
-            return FALSE;
+    char charFileNameCopy[1000];
+    strcpy(charFileNameCopy,filename);
+    char *token;
+
+    token = strtok (charFileNameCopy,"/");
+    while(token != NULL){
+        int i;
+        for (i = 0; i < strlen(token); i++) {
+            if (!((('0' <= token[i]) && (token[i] <= '9')) ||
+                  (('a' <= token[i]) && (token[i] <= 'z')) ||
+                  (('A' <= token[i]) && (token[i] <= 'Z')))) {
+                return FALSE;
+            }
         }
+        token = strtok (NULL, "/");
     }
     return TRUE;
 }
@@ -291,14 +301,51 @@ int appendRecordTooDirectory(int directoryInodeNumber, RECORD *record) {
 // record.
 int getRecordByName(char *filename, RECORD *record) {
     int index = 0;
+    int inodeNumber;
+    
+    if(filename[0] == '/')
+        inodeNumber = rootInodeId;
+    else
+        inodeNumber = actualDirectory.inodeNumber;
 
-    while (getRecordByIndex(inodeNumber, index, record) == SUCCESS_CODE) {
-        if (strcmp(filename, record->name) == 0) {
-            return SUCCESS_CODE;
+
+    char charFileNameCopy[1000];
+    strcpy(charFileNameCopy,filename);
+    char *token;
+
+    token = strtok (charFileNameCopy,"/");
+    int foundRecordWithName = FALSE;
+    int foundRecordWithToken = TRUE;
+
+    while (token != NULL && foundRecordWithToken == TRUE){
+        index = 0;
+        foundRecordWithToken = FALSE;
+        foundRecordWithName  = FALSE;
+        while (foundRecordWithName == FALSE && getRecordByIndex(inodeNumber, index, record) == SUCCESS_CODE){
+            foundRecordWithName = FALSE;
+            if (strcmp(token, record->name) == 0) {
+                inodeNumber = record->inodeNumber;
+                foundRecordWithName = TRUE;
+                foundRecordWithToken = TRUE;
+            }
+            index++;
         }
-        index++;
+        token = strtok (NULL, "/");
+    
     }
-    printf("[ERROR] Error while getting record by name");
+    if(token == NULL && foundRecordWithName == TRUE){
+        return SUCCESS_CODE;
+    }
+
+    // printf("[ERROR] Error while getting record by name");
+    if(token == NULL && foundRecordWithName == FALSE){
+        return ERROR_CODE_FILE_NOT_FOUND;
+    }
+
+    if(token != NULL){
+        return ERROR_CODE_FILE_WRONG_PATH;
+    }
+
     return ERROR_CODE;
 }
 
@@ -309,7 +356,7 @@ int getRecordByName(char *filename, RECORD *record) {
 // estrutura record.
 int getRecordByIndex(int iNodeId, int indexOfRecord, RECORD *record) {
     if (indexOfRecord < numberOfRecordsPerBlock) {
-        // INODE* inode = malloc(INODE_SIZE);
+
         INODE inode;
 
         if (getInodeById(iNodeId, &inode) != SUCCESS_CODE) {
@@ -327,7 +374,7 @@ int getRecordByIndex(int iNodeId, int indexOfRecord, RECORD *record) {
         // free(inode);
         return SUCCESS_CODE;
     }
-    printf("[ERROR] Error while getting record.\n");
+    // printf("[ERROR] Error while getting record.\n");
     return ERROR_CODE;
 }
 
@@ -611,74 +658,79 @@ int desallocBlock(int blockId) {
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// int create2(char *filename) {
-//     if (initialized == FALSE) {
-//         initialize();
-//     }
+int create2(char *filename) {
+    if (initialized == FALSE) {
+        initialize();
+    }
 
-//     if (validName(filename) != TRUE) {
-//         printf("Error with filename");
-//         return ERROR_CODE;
-//     }
+    if (validName(filename) != TRUE) {
+        printf("Error with filename");
+        return ERROR_CODE;
+    }
+    RECORD record;
+    if(getRecordByName(filename,&record) != ERROR_CODE_FILE_NOT_FOUND){
+        return ERROR_CODE;
 
-//     // Criação de um novo INODE
-//     INODE *inode = malloc(sizeof(INODE *));
-//     inode->blocksFileSize = 0;
-//     inode->bytesFileSize = 0;
-//     inode->dataPtr[0] = INVALID_PTR;
-//     inode->dataPtr[1] = INVALID_PTR;
-//     inode->singleIndPtr = INVALID_PTR;
-//     inode->doubleIndPtr = INVALID_PTR;
+    }
+    INODE inode;
+    inode.blocksFileSize = 0;
+    inode.bytesFileSize = 0;
+    inode.dataPtr[0] = INVALID_PTR;
+    inode.dataPtr[1] = INVALID_PTR;
+    inode.singleIndPtr = INVALID_PTR;
+    inode.doubleIndPtr = INVALID_PTR;
 
-//     // Procurar pelo inode livre no BITMAP
-//     int inodeId = searchBitmap2(INODE_BITMAP, FREE);
-//     if (writeInode(inodeId, inode) != SUCCESS_CODE) {
-//         printf("[ERROR] error writing inode");
-//         return ERROR_CODE;
-//     }
-//     setBitmap2(INODE_BITMAP, inodeId, OCCUPIED);
-//     // inode gravado no disco e setado como ocupado.
+    int inodeId = allocInode();
+    if(inodeId == ERROR_CODE){
+        printf("[ERROR] error allocing inode");
+        return ERROR_CODE;
+    }
+    if (writeInode(inodeId, &inode) != SUCCESS_CODE) {
+        printf("[ERROR] error writing inode");
+        return ERROR_CODE;
+    }
+    // inode gravado no disco e setado como ocupado.
 
-//     // Criação da entrada do arquivo.
-//     RECORD *record = malloc(sizeof(RECORD *));
-//     strcpy(record->name, filename);
-//     record->TypeVal = TYPEVAL_REGULAR;
-//     record->inodeNumber = inodeId;
+    // Criação da entrada do arquivo.
+    // RECORD *record = malloc(sizeof(RECORD *));
+    // strcpy(record->name, filename);
+    // record->TypeVal = TYPEVAL_REGULAR;
+    // record->inodeNumber = inodeId;
 
-//     // Gravar a entrada do arquivo nos dados do diretório.
-//     if (isAbsolutePath(filename)) {
+    // // Gravar a entrada do arquivo nos dados do diretório.
+    // if (isAbsolutePath(filename)) {
 
-//         // Arquivo será gravado nos dados do diretório absoluto.
-//         // Encontrar a entrada do diretorio dado pelo pathname.
-//         nameNode *namesList = filenameTooNamesList(filename);
-//         nameNode *namesAux = namesList;
-//         RECORD *recordAux = malloc(sizeof(RECORD *));
-//         int actualInodeId = rootInodeId;
-//         while (namesAux->next != NULL) {
-//             getRecordByName(actualInodeId, namesAux->name, recordAux);
-//             actualInodeId = recordAux->inodeNumber;
-//             namesAux = namesAux->next;
-//         }
+    //     // Arquivo será gravado nos dados do diretório absoluto.
+    //     // Encontrar a entrada do diretorio dado pelo pathname.
+    //     nameNode *namesList = filenameTooNamesList(filename);
+    //     nameNode *namesAux = namesList;
+    //     RECORD *recordAux = malloc(sizeof(RECORD *));
+    //     int actualInodeId = rootInodeId;
+    //     while (namesAux->next != NULL) {
+    //         getRecordByName(actualInodeId, namesAux->name, recordAux);
+    //         actualInodeId = recordAux->inodeNumber;
+    //         namesAux = namesAux->next;
+    //     }
 
-//         // Aqui, recordAux deve conter a entrada do diretório onde o arquivo será criado.
-//         if (appendRecordTooDirectory(recordAux->inodeNumber, record) == SUCCESS_CODE) {
-//             return inodeId;
-//         } else {
-//             printf("[ERROR] Error in create2.\n");
-//             return ERROR_CODE;
-//         }
+    //     // Aqui, recordAux deve conter a entrada do diretório onde o arquivo será criado.
+    //     if (appendRecordTooDirectory(recordAux->inodeNumber, record) == SUCCESS_CODE) {
+    //         return inodeId;
+    //     } else {
+    //         printf("[ERROR] Error in create2.\n");
+    //         return ERROR_CODE;
+    //     }
 
-//     } else {
+    // } else {
 
-//         // Arquivo será gravado nos dados do diretório atual.
-//         if (appendRecordTooDirectory(actualDirectory.inodeNumber, record) == SUCCESS_CODE) {
-//             return inodeId;
-//         } else {
-//             printf("[ERROR] Error in create2.\n");
-//             return ERROR_CODE;
-//         }
-//     }
-// }
+    //     // Arquivo será gravado nos dados do diretório atual.
+    //     if (appendRecordTooDirectory(actualDirectory.inodeNumber, record) == SUCCESS_CODE) {
+    //         return inodeId;
+    //     } else {
+    //         printf("[ERROR] Error in create2.\n");
+    //         return ERROR_CODE;
+    //     }
+    // }
+}
 
 int identify2(char *name, int size) {
     return 0;
@@ -699,7 +751,10 @@ FILE2 open2(char *filename) {
     RECORD record;
     
 
-    getRecordByName(filename, &record);
+    if(getRecordByName(filename, &record) != SUCCESS_CODE){
+        return getRecordByName(filename, &record);
+
+    }
 
     openFileIndex = getOpenFileStruct();
     if (record.TypeVal != TYPEVAL_REGULAR) {
@@ -720,17 +775,18 @@ FILE2 open2(char *filename) {
     openFiles[openFileIndex].openBlockId = inode.dataPtr[0];
     openFiles[openFileIndex].currentPointer = 0;
 
-        
-    } else {
-
-    }
     return openFileIndex;
 }
 
 int close2(FILE2 handle) {
-    if(openFiles[handle].active == TRUE){
-        openFiles[handle].active = FALSE;
-        return SUCCESS_CODE;
+    if(initialized == FALSE){
+        initialize();
+    }
+    if(handle >= 0 && handle <= 9){
+        if(openFiles[handle].active == TRUE){
+            openFiles[handle].active = FALSE;
+            return SUCCESS_CODE;
+        }
     }
     return ERROR_CODE;
 }
@@ -753,6 +809,14 @@ int read2(FILE2 handle, char *buffer, int size) {
 
     getInodeById(openFiles[handle].inodeId, &inode);
 
+    if(currentPointerOffset > inode.bytesFileSize){
+        currentPointerOffset = inode.bytesFileSize;
+        currentBlockOffset = (currentPointerOffset - 1) / blockBufferSize;
+        blockCurrentPointerOffset = (currentPointerOffset % blockBufferSize);
+
+        openFiles[handle].openBlockId = getNextBlockId(currentBlockOffset -1, &inode);
+    }
+
     if (openFiles[handle].openBlockId == INVALID_PTR) {
         printf("[ERROR] Error while reading the file, the pointer to the block was an invalid pointer\n");
     }
@@ -762,7 +826,6 @@ int read2(FILE2 handle, char *buffer, int size) {
     }
 
     numOfBytesReaded = size;
-    int i;
 
     BYTE blockBuffer[blockBufferSize];
     int bufferOffset = 0;
@@ -828,6 +891,15 @@ int write2(FILE2 handle, char *buffer, int size) {
     INODE inode;// = malloc(INODE_SIZE);
 
     getInodeById(openFiles[handle].inodeId, &inode);
+
+    if(currentPointerOffset > inode.bytesFileSize){
+        currentPointerOffset = inode.bytesFileSize;
+        currentBlockOffset = (currentPointerOffset - 1) / blockBufferSize;
+        blockCurrentPointerOffset = (currentPointerOffset % blockBufferSize);
+
+        openFiles[handle].openBlockId = getNextBlockId(currentBlockOffset -1, &inode);
+
+    }
 
     BYTE blockBuffer[blockBufferSize];
     int bufferOffset = 0;
@@ -941,33 +1013,54 @@ int seek2(FILE2 handle, DWORD offset) {
 }
 
 int mkdir2(char *pathname) {
+    if (initialized == FALSE) {
+        initialize();
+    }
     return 0;
 }
 
 
 int rmdir2(char *pathname) {
+    if (initialized == FALSE) {
+        initialize();
+    }
     return 0;
 }
 
 
 int chdir2(char *pathname) {
+    if (initialized == FALSE) {
+        initialize();
+    }
     return 0;
 }
 
 
 int getcwd2(char *pathname, int size) {
+    if (initialized == FALSE) {
+        initialize();
+    }
     return 0;
 }
 
 
 DIR2 opendir2(char *pathname) {
+    if (initialized == FALSE) {
+        initialize();
+    }
     return 0;
 }
 
 int readdir2(DIR2 handle, DIRENT2 *dentry) {
+    if (initialized == FALSE) {
+        initialize();
+    }
     return 0;
 }
 
 int closedir2(DIR2 handle) {
+    if (initialized == FALSE) {
+        initialize();
+    }
     return 0;
 }

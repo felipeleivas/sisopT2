@@ -12,6 +12,11 @@
 #define OCCUPIED 1
 #define INODE_BITMAP 0
 #define DATA_BITMAP 1
+#define ERROR_CODE -1
+#define ERROR_CODE_FILE_NOT_FOUND -2
+#define ERROR_CODE_FILE_WRONG_PATH -3
+#define SUCCESS_CODE 0
+
 //
 
 int countFreeBlocks();
@@ -23,18 +28,23 @@ int main() {
     int testSuccess = TRUE;
     int i;
     printf("-----------------------\n");
-    // printf("Number of free nodes: %d before the program starts\n",countFreeBlocks());
-    // printf("There is %d free blocks\n",numberOfFreeBlocks);
+    int numOfFreeBlocksStart= (countFreeBlocks());
+    // printf("There is %d free blocks\n",countFreeBlocks());
     FILE2 f = open2("file3");
+    FILE2 f2;
     int bytesRead = read2(f, auxBuffer2, bufferSize);
     int numberOfBytsToWrite = (1024 * (258 + (256 * 2)) * 1) + 1;
     for (i = 0; i < bytesRead; i++) {
         if (auxBuffer2[i] == 0) {
-            printf("ERROR WHILE READING THE FILE: %s \n", "file3");
+            // printf("ERROR WHILE READING THE FILE: %s \n", "file3");
             testSuccess = FALSE;
         }
     }
-    // printf("Number of free nodes: %d after read a file\n",countFreeBlocks());
+    int numOfFreeBlocksAfterRead= (countFreeBlocks());
+    if(numOfFreeBlocksStart > numOfFreeBlocksAfterRead ){
+    	printf("Shouldn't alloc any block\n");
+    	testSuccess = FALSE;
+    }
     int GOING_TO_WRITE = TRUE;
     int maxBufferSize = 1024 * 1024 *2;
     int totalWritingBytes = 0;
@@ -52,9 +62,13 @@ int main() {
                 printf("ERROR writing FILE was writen %d bytes instead 1024 \n", writenBytes);
             }
         }
-    	// printf("Number of free nodes: %d after read a file\n",countFreeBlocks());
+        int numOfFreeBlocksAfterWrite= (countFreeBlocks());
+    	if(numOfFreeBlocksAfterWrite > numOfFreeBlocksAfterRead ){
+	    	printf("Should alloc some blocks\n");
+	    	testSuccess = FALSE;
+    	}
         char auxBuffer3[maxBufferSize];
-        FILE2 f2 = open2("file3");
+        f2 = open2("/dir1/../file3");
 
         int bytesReadAfterWrite = read2(f2, auxBuffer3, maxBufferSize);
         for (i = bytesRead; i < bytesReadAfterWrite; i++) {
@@ -97,7 +111,7 @@ int main() {
     }
     if(seek2(f,- (maxBufferSize + 2 + bytesRead)) == 0){
     	truncate2(f);
-    		FILE2 f3=open2("file3");
+    		FILE2 f3=open2("/file3");
     		BYTE auxBuffer4[maxBufferSize];
     		int numBytesReaded =read2(f3,auxBuffer4,maxBufferSize);
     		if(numBytesReaded != 0){
@@ -105,7 +119,19 @@ int main() {
 				printf("Read bytes from an file that should be empty\n");
     		}
     }
-
+    	int numOfFreeBlocksAfterTruncate= (countFreeBlocks());
+    	if(numOfFreeBlocksAfterTruncate < numOfFreeBlocksAfterRead ){
+	    	printf("Should free the blocks\n");
+	    	testSuccess = FALSE;
+    	}
+    if(open2("/pineapple") != ERROR_CODE_FILE_NOT_FOUND){
+    	testSuccess = FALSE;
+    	printf("SHOULD RETURN %d but return %d\n",ERROR_CODE_FILE_NOT_FOUND,open2("/pineapple"));
+    }   
+    if(open2("/asassasa/pineapple") != ERROR_CODE_FILE_WRONG_PATH){
+    	testSuccess = FALSE;
+    	printf("SHOULD RETURN %d but return %d\n",ERROR_CODE_FILE_WRONG_PATH,open2("/pineapple"));
+    }
     if (testSuccess == TRUE)
         printf("CONGRATZ THE TEST PASSED\n");
     return 0;
