@@ -4,6 +4,8 @@
 !/bin
 !/exemplo
 !/testes
+!/teste
+!/teste/*.c
 /testes/build
 !/include
 !/lib/
