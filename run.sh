@@ -11,7 +11,7 @@ cd teste/
 gcc -c test_Write.c -Wall 
 gcc -o test_Write test_Write.o ../src/t2fs.o ../lib/apidisk.o  ../lib/bitmap2.o -Wall 
 #gcc -o t2fs.exe ../exemplo/main.c t2fs.o ../lib/apidisk.o  ../lib/bitmap2.o -Wall
-echo -e "\nOutput of #main \n\n\n"
+echo -e "\nOutput of #main \n"
 ./test_Write
 rm test_Write
 rm test_Write.o

@@ -32,6 +32,7 @@ int main() {
     // printf("There is %d free blocks\n",countFreeBlocks());
     FILE2 f = open2("file3");
     FILE2 f2;
+    FILE2 f3;
     int bytesRead = read2(f, auxBuffer2, bufferSize);
     int numberOfBytsToWrite = (1024 * (258 + (256 * 2)) * 1) + 1;
     for (i = 0; i < bytesRead; i++) {
@@ -53,7 +54,6 @@ int main() {
         auxBuffer[i] = 49;
     if (GOING_TO_WRITE == TRUE) {
         int writes = 1024;
-        printf("\nbloco:%d\n", numberOfBytsToWrite / writes);
         for (i = 0; i < maxBufferSize/1024 ; i++) {
             int writenBytes = write2(f, auxBuffer, writes);
             totalWritingBytes += writes;
@@ -111,7 +111,7 @@ int main() {
     }
     if(seek2(f,- (maxBufferSize + 2 + bytesRead)) == 0){
     	truncate2(f);
-    		FILE2 f3=open2("/file3");
+    		f3 = open2("/file3");
     		BYTE auxBuffer4[maxBufferSize];
     		int numBytesReaded =read2(f3,auxBuffer4,maxBufferSize);
     		if(numBytesReaded != 0){
@@ -132,8 +132,94 @@ int main() {
     	testSuccess = FALSE;
     	printf("SHOULD RETURN %d but return %d\n",ERROR_CODE_FILE_WRONG_PATH,open2("/pineapple"));
     }
+    if(close2(f) != SUCCESS_CODE){
+    	testSuccess = FALSE;
+    	printf("Couldn't close the file f\n");
+    }
+    if(close2(f2) != SUCCESS_CODE){
+    	testSuccess = FALSE;
+    	printf("Couldn't close the file f2\n");
+    }
+    if(close2(f3) != SUCCESS_CODE){
+    	testSuccess = FALSE;
+    	printf("Couldn't close the file f3\n");
+    }
+    if(close2(-1) == SUCCESS_CODE){
+    	testSuccess = FALSE;
+    	printf("Should't close the file cause its not a file\n");
+    }
+
+     
+     FILE2 createdFile = create2("/dir1/teste");
+     BYTE batata[10]= {'a','y','r','v','h','u','p','4','-','a'};
+     int writenBytesOnTheCreatedFile = write2(createdFile,batata,10);
+     if(writenBytesOnTheCreatedFile != 10){
+     	testSuccess = FALSE;
+     	printf("Didn't wrote the 10 bytes on the new file\n");
+     }
+     if(create2("dir1/teste") > 0){
+     	testSuccess = FALSE;
+     	printf("This file already exist in these path\n");
+     }
+     if(open2("teste") >= 0){
+     	testSuccess = FALSE;
+     	printf("This file doens't exist in these path\n");
+     }
+     seek2(createdFile,-10);
+     
+     BYTE batata2[10];
+     int readedBytesOnTheCreatedFile = read2(createdFile,batata2,10);
+
+     if(readedBytesOnTheCreatedFile != 10){
+     	testSuccess = FALSE;
+     	printf("Didn't read the 10 bytes on the new file\n");
+     }
+
+     if(close2(createdFile) != SUCCESS_CODE){
+		testSuccess = FALSE;
+     	printf("Should close the createdFile\n");     	
+     }
+
+     if(delete2("/dir1/teste") != SUCCESS_CODE){
+		testSuccess = FALSE;
+     	printf("Should delete the createdFile\n");     	
+     }
+
+     if(delete2("/file3") != SUCCESS_CODE){
+		testSuccess = FALSE;
+     	printf("Should delete the file3\n");     	
+     }
+     if(delete2("/dir1/../file3") != SUCCESS_CODE){
+		testSuccess = FALSE;
+     	printf("Should delete the file3\n");     	
+     }
+	
+	 if(delete2("/2dir1/teste") == SUCCESS_CODE){
+		testSuccess = FALSE;
+     	printf("Shouldn't be able to delete this file\n");     	
+     }
+
+     if(open2("/dir1/teste") == SUCCESS_CODE){
+     	testSuccess = FALSE;
+     	printf("Shouldn't be able to open this file\n");
+     }
+ 	printf("########CREATE NEW directory##########################\n");
+
+     if(mkdir2("newDir") != SUCCESS_CODE){
+     	testSuccess = FALSE;
+     	printf("Should be able to create the directory\n");
+     }
+     	printf("########CREATE FILE ON NEW directory##########################\n");
+     	FILE2 newDirFile = create2("newDir/file1");
+     if(newDirFile < 0){
+		testSuccess = FALSE;
+     	printf("Should be able to create the file at newDir %d\n",newDirFile);
+     }
     if (testSuccess == TRUE)
         printf("CONGRATZ THE TEST PASSED\n");
+    else
+        printf("CONGRATZ THE YOU BREAK THE CODE\n");
+
     return 0;
 }
 
