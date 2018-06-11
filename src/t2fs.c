@@ -182,7 +182,7 @@ void initialize() {
 
     // Inicializar o i-node root
     // rootInode = malloc(sizeof(INODE));
-    getInodeById(0, &rootInode)
+    getInodeById(0, &rootInode);
 
     // Inicializar o record root
     // rootRecord = malloc(sizeof(RECORD));
@@ -388,7 +388,7 @@ void setRecordOnBlockByPosition(BYTE *blockBuffer, int position, RECORD *record)
 }
 
 int getInodeById(int id, INODE *inode) {
-    printf("Inside getInodeById, id = %d", id);
+    //printf("Inside getInodeById, id = %d", id);
     int relativePossitionOnInodeBlock = id % INODES_PER_SECTOR;
     int inodeSector = id / INODES_PER_SECTOR + iNodeAreaOffset;
     BYTE buffer[SECTOR_SIZE];
@@ -820,21 +820,31 @@ int deleteFile(char *filename, BYTE typeVal){
     invalidRecord.inodeNumber = INVALID_PTR;
 
     getFileName(filename,onlyFilename,filePath);
+    printf("Encontrei os nomes pra deletar, nome: %s, path: %s\n", onlyFilename, filePath);
     if(getRecordByName(filePath, &path) != SUCCESS_CODE){
         return ERROR_CODE;
     }
+    printf("Encontrei a entrada do diretorio de onde esta o arquivo, nome = %s\n", path.name);
+
 
     getInodeById(path.inodeNumber, &inode);
     int numOfRecordOnInode = (inode.bytesFileSize/sizeof(RECORD));
+    printf("Temos %d records salvos nesse inode, de id %d\n", numOfRecordOnInode, path.inodeNumber);
 
     int i = 0;
     for(i = 0; i<numOfRecordOnInode; i++){
         getRecordByIndex(path.inodeNumber, i, &record);
         if(strcmp(record.name,onlyFilename) == 0 && record.TypeVal == typeVal){
-            truncate(0,0,path.inodeNumber);
-            desallocBlock(inode.dataPtr[0]);
-            setBitmap2(INODE_BITMAP, path.inodeNumber, FREE);
+          printf("\nEncontrei a entrada do arquivo que sera deletado: %s\n", record.name);
+            INODE inodeAux;
+            getInodeById(record.inodeNumber, &inodeAux)
+            printf("Encontrei o inode do arquivo que sera deletado: %d\n", record.inodeNumber);
+            truncate(0,0,record.inodeNumber);
+            desallocBlock(inodeAux.dataPtr[0]);
+            printf("Desaloquei os blocos do arquivo\n");
+            setBitmap2(INODE_BITMAP, record.inodeNumber, FREE);
             if(setRecordAtIndex(path.inodeNumber,i,&invalidRecord) == SUCCESS_CODE){
+                printf("Setei a entrada %d como invalida\n", i);
                 return SUCCESS_CODE;
             }
             else{
@@ -1126,10 +1136,12 @@ int rmdir2(char *pathname) {
     getInodeById(dir.inodeNumber,&inode);
     int i;
     int numOfRecordOnInode = (inode.bytesFileSize/sizeof(RECORD));
-    for(i=0;i<numOfRecordOnInode; i++){
+    for(i=2;i<numOfRecordOnInode; i++){
         if(getRecordByIndex(dir.inodeNumber, i, &auxRecord) == SUCCESS_CODE){
-            if(auxRecord.TypeVal != TYPEVAL_INVALIDO)
-                return ERROR_CODE;
+            if(auxRecord.TypeVal != TYPEVAL_INVALIDO){
+              printf("[ERROR] Diretorio nao esta vazio");
+              return ERROR_CODE;
+            }
         }
     }
     return deleteFile(pathname, TYPEVAL_DIRETORIO);
