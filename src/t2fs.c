@@ -49,6 +49,7 @@ int rootInodeId;
 INODE rootInode;
 RECORD rootRecord;
 RECORD actualDirectory; // Começa estando na root
+char actualDirectoryFullPath[1000];
 
 int blockBufferSize;
 
@@ -188,6 +189,7 @@ void initialize() {
     // rootRecord = malloc(sizeof(RECORD));
     getRecordByName("/", &rootRecord);
     actualDirectory = rootRecord;
+    strcpy(actualDirectoryFullPath, rootRecord.name);
 
     int i;
     for (i = 0; i < MAX_OPEN_FILES_SIMULTANEOUSLY; i++) {
@@ -783,7 +785,6 @@ int openFile(char *filename, BYTE typeVal){
 
     if(getRecordByName(filename, &record) != SUCCESS_CODE){
         return getRecordByName(filename, &record);
-
     }
 
     openFileIndex = getOpenFileStruct();
@@ -818,7 +819,6 @@ int deleteFile(char *filename, BYTE typeVal){
     RECORD invalidRecord;
     invalidRecord.TypeVal=TYPEVAL_INVALIDO;
     invalidRecord.inodeNumber = INVALID_PTR;
-    strcpy(invalidRecord.name, "");
 
     getFileName(filename,onlyFilename,filePath);
     printf("Encontrei os nomes pra deletar, nome: %s, path: %s\n", onlyFilename, filePath);
@@ -1172,24 +1172,74 @@ int chdir2(char *pathname) {
         initialize();
     }
 
+    char directoryPath[1000];
+    char directoryName[59];
+    char directoryFullPath[1059] = "\0";
 
-    return 0;
+    RECORD newActualRecord;
+    if(getRecordByName(pathname, &newActualRecord) == SUCCESS_CODE) {
+        if(newActualRecord.TypeVal != TYPEVAL_DIRETORIO) {
+          return ERROR_CODE
+        } else {
+          actualDirectory = newActualRecord;
+          getFileName(pathname, directoryName, directoryPath);
+          strcat(directoryFullPath, directoryPath);
+          strcat(directoryFullPath, directoryName);
+          strcpy(actualDirectoryFullPath, directoryFullPath);
+          printf("Novo actualDirectoryFullPath = %s", actualDirectoryFullPath);
+          return SUCCESS_CODE;
+        }
+    } else {
+      return ERROR_CODE;
+    }
 }
 
+/*-----------------------------------------------------------------------------
+Fun��o:	Informa o diret�rio atual de trabalho.
+		O "pathname" do diret�rio de trabalho deve ser copiado para o buffer indicado por "pathname".
+			Essa c�pia n�o pode exceder o tamanho do buffer, informado pelo par�metro "size".
+		S�o considerados erros:
+			(a) quaisquer situa��es que impe�am a realiza��o da opera��o
+			(b) espa�o insuficiente no buffer "pathname", cujo tamanho est� informado por "size".
 
+Entra:	pathname -> buffer para onde copiar o pathname do diret�rio de trabalho
+		size -> tamanho do buffer pathname
+
+Sa�da:	Se a opera��o foi realizada com sucesso, a fun��o retorna "0" (zero).
+		Em caso de erro, ser� retornado um valor diferente de zero.
+-----------------------------------------------------------------------------*/
 int getcwd2(char *pathname, int size) {
     if (initialized == FALSE) {
         initialize();
     }
-    return 0;
+
+    if(strlen(actualDirectoryFullPath) > size) {
+      return ERROR_CODE;
+    } else {
+      strcpy(pathname, actualDirectoryFullPath);
+      return SUCCESS_CODE;
+    }
 }
 
+/*-----------------------------------------------------------------------------
+Fun��o:	Abre um diret�rio existente no disco.
+	O caminho desse diret�rio � aquele informado pelo par�metro "pathname".
+	Se a opera��o foi realizada com sucesso, a fun��o:
+		(a) deve retornar o identificador (handle) do diret�rio
+		(b) deve posicionar o ponteiro de entradas (current entry) na primeira posi��o v�lida do diret�rio "pathname".
+	O handle retornado ser� usado em chamadas posteriores do sistema de arquivo para fins de manipula��o do diret�rio.
 
+Entra:	pathname -> caminho do diret�rio a ser aberto
+
+Sa�da:	Se a opera��o foi realizada com sucesso, a fun��o retorna o identificador do diret�rio (handle).
+	Em caso de erro, ser� retornado um valor negativo.
+-----------------------------------------------------------------------------*/
 DIR2 opendir2(char *pathname) {
     if (initialized == FALSE) {
         initialize();
     }
-    return 0;
+
+    return openFile(filename, TYPEVAL_DIRETORIO);
 }
 
 int readdir2(DIR2 handle, DIRENT2 *dentry) {
