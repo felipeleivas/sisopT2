@@ -2,14 +2,20 @@
 if [ "$1" == "-r" ]
 then
     echo reloading the disk
-    cp t2fs_disk.dat src/t2fs_disk.dat
+    cp t2fs_disk.dat teste/t2fs_disk.dat
 fi
 cd src/
-gcc -c t2fs.c -Wall > /dev/null
-gcc -o t2fs.exe t2fs.o ../lib/apidisk.o  ../lib/bitmap2.o -Wall > /dev/null
+gcc -c t2fs.c -Wall
+cd ..
+cd teste/
+gcc -c test_Write.c -Wall
+gcc -o test_Write test_Write.o ../src/t2fs.o ../lib/apidisk.o  ../lib/bitmap2.o -Wall
+#gcc -c test_create_delete_mkdir_rmdir.c -Wall
+#gcc -o test_create_delete_mkdir_rmdir.o ../src/t2fs.o ../lib/apidisk.o  ../lib/bitmap2.o -Wall
 #gcc -o t2fs.exe ../exemplo/main.c t2fs.o ../lib/apidisk.o  ../lib/bitmap2.o -Wall
-echo -e "\nOutput of #main \n\n\n"
-./t2fs.exe
-rm t2fs.exe
-rm t2fs.o
+echo -e "\nOutput of #main \n"
+./test_Write
+rm test_Write
+rm test_Write.o
+rm ../src/t2fs.o
 cd ..
