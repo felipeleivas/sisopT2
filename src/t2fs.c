@@ -88,15 +88,37 @@ int writeBlock(int id, BYTE *blockBuffer);
 
 int assignBlockToInode(int blockIndex, int freeBlockId, INODE *inode);
 
-nameNode *filenameTooNamesList(char *filename);
-
-void destroyNamesList(nameNode *namesList);
-
-int appendRecordTooDirectory(int inodeNumber, RECORD *record);
-
 int desallocBlocksOfInode(int from, int to, INODE *inode);
 
 int desallocBlock(int blockId);
+
+void printAllStuff() {
+  printf("\n __________________ PRINT STUFF ___________________\n");
+  printf("Diretorio atual: %s com o inode de ID %d", actualDirectory.name, actualDirectory.inodeNumber);
+  printf("Diretorio root: %s com o inode de ID %d", rootRecord.name, rootRecord.inodeNumber);
+  printf("\n_____________________ ARVORE _________________________\n");
+  printStuff(&rootRecord);
+}
+
+void printStuff(RECORD *record) {
+  printf("-![%s]!-", record.name);
+  INODE inode;
+  RECORD recordAux;
+  inode = getInodeById(record.inodeNumber, inode);
+  if(record.typeVal == TYPEVAL_DIRETORIO) {
+    int numberOfRecords = inode.bytesFileSize / RECORD_SIZE;
+    printf(" - Number of Records inside this file: %d -", numberOfRecords);
+    int i = 0;
+    for(i = 2; i < numberOfRecords; i++) {
+      getRecordByIndex(record.inodeNumber, i, recordAux);
+      if(recordAux.typeVal == TYPEVAL_DIRETORIO) {
+        printStuff(&recordAux);
+      } else {
+        printf("-[%s]-", recordAux.name);
+      }
+    }
+  }
+}
 
 int variavelQueEUvouDELEtar = 0;
 
@@ -207,7 +229,7 @@ int validName(char *filename) {
     return TRUE;
 }
 
-int getFileName(char *fullFilename, char *filename,char *path){
+int getFileName(char *fullFilename, char *filename, char *path){
     char charFileNameCopy[1000];
     char charFileNameCopy2[1000];
     strcpy(charFileNameCopy,fullFilename);
@@ -221,7 +243,7 @@ int getFileName(char *fullFilename, char *filename,char *path){
     token = strtok (charFileNameCopy,"/");
 
     while(token != NULL){
-        if(tokenAux != NULL){    
+        if(tokenAux != NULL){
             // printf("--%s\n",tokenAux);
             strcpy(charFileNameCopy2 + i,tokenAux);
             i += strlen(tokenAux);
@@ -247,85 +269,6 @@ int isAbsolutePath(char *filename) {
     }
 }
 
-nameNode *filenameTooNamesList(char *filename) {
-    int i = 0, characterCounter = 0;
-    // int numberOfWords = 1, flag = 0;
-
-    nameNode *firstName = (nameNode *) malloc(sizeof(nameNode));
-
-    firstName->next = NULL;
-    firstName->name[0] = '/';
-    firstName->name[1] = '\0';
-
-    nameNode *actualName;
-    nameNode *auxName = (nameNode *) malloc(sizeof(nameNode));
-    actualName = firstName;
-
-    for (i = 1; i < strlen(filename) + 1; i++) {
-
-        // Chegamos na próxima barra, logo, acabou o nome
-        if (filename[i] == '/') {
-            auxName->name[characterCounter] = '\0';
-            actualName->next = auxName;
-            auxName->next = NULL;
-            actualName = auxName;
-            auxName = auxName->next;
-            auxName = (nameNode *) malloc(sizeof(nameNode));
-            characterCounter = 0;
-        } else if (filename[i] == '\0') {
-            auxName->name[characterCounter] = '\0';
-            actualName->next = auxName;
-            auxName->next = NULL;
-            actualName = auxName;
-            auxName = auxName->next;
-            auxName = (nameNode *) malloc(sizeof(nameNode));
-            characterCounter = 0;
-        } else {
-            // Caractere não é barra, logo, faz parte do nome
-            auxName->name[characterCounter] = filename[i];
-            characterCounter++;
-        }
-    }
-
-    return firstName;
-}
-
-void destroyNamesList(nameNode *namesList) {
-    nameNode *namesAux = namesList;
-    nameNode *namesAux2 = namesAux;
-
-    while (namesAux != NULL) {
-        namesAux = namesAux->next;
-        free(namesAux2);
-        namesAux2 = namesAux;
-    }
-}
-
-int appendRecordTooDirectory(int directoryInodeNumber, RECORD *record) {
-    INODE *directoryInode = malloc(sizeof(INODE *));
-    getInodeById(directoryInodeNumber, directoryInode);
-    BYTE blockBuffer[blockBufferSize];
-    getBlock(directoryInode->dataPtr[0], blockBuffer);
-
-    int blockToWrite = directoryInode->blocksFileSize;
-    if (blockToWrite == 1) {
-        // blockBuffer[directoryInode->bytesFileSize] = record;
-        writeBlock(directoryInode->dataPtr[0], blockBuffer);
-
-        return SUCCESS_CODE;
-    } else if (blockToWrite == 2) {
-        // blockBuffer[directoryInode->bytesFileSize - blockBufferSize] = record;
-        writeBlock(directoryInode->dataPtr[1], blockBuffer);
-
-        return SUCCESS_CODE;
-    } else {
-        printf("ainda n feito");
-        return ERROR_CODE;
-    }
-
-    return ERROR_CODE;
-}
-
 int getRecordByName(char *filename, RECORD *record) {
     int index = 0;
     int inodeNumber;
@@ -334,7 +277,7 @@ int getRecordByName(char *filename, RECORD *record) {
 
     if(strlen(fileNameCpy) == 0 || (strlen(fileNameCpy) == 1 && fileNameCpy[0] == '/'))
         strcpy(fileNameCpy,"./");
-        
+
     if(fileNameCpy[0] == '/')
         inodeNumber = rootInodeId;
     else
@@ -365,7 +308,7 @@ int getRecordByName(char *filename, RECORD *record) {
             index++;
         }
         token = strtok (NULL, "/");
-    
+
     }
     if(token == NULL && foundRecordWithName == TRUE){
             // puts(record->name);
@@ -380,7 +323,7 @@ int getRecordByName(char *filename, RECORD *record) {
     }
 
     if(token != NULL){
-printf("------------%s-----------\n",filename);
+        printf("------------%s-----------\n",filename);
         return ERROR_CODE_FILE_WRONG_PATH;
     }
 
@@ -394,7 +337,7 @@ int getRecordByIndex(int iNodeId, int indexOfRecord, RECORD *record) {
         printf("[ERROR] Error at getting inode on getRecordByIndex\n");
         return ERROR_CODE;
     }
-    
+
 
     if (indexOfRecord < inode.blocksFileSize * numberOfRecordsPerBlock) {
 
@@ -421,13 +364,11 @@ int setRecordAtIndex(int iNodeId, int indexOfRecord, RECORD *record) {
 
 
         BYTE blockBuffer[blockBufferSize];
-        // @question Como tu sabe que os dados do registro estão no primeiro
-        // bloco de dados apontados pelo inode?
         int recordBelongingBlockIndex = (indexOfRecord - 1)/numberOfRecordsPerBlock;
         int recordBelongingBlockId = getNextBlockId(recordBelongingBlockIndex-1 , &inode);
-        
+
         getBlock(recordBelongingBlockId, blockBuffer);
-        
+
         setRecordOnBlockByPosition(blockBuffer, indexOfRecord % numberOfRecordsPerBlock, record);
         writeBlock(recordBelongingBlockId,blockBuffer);
 
@@ -438,7 +379,7 @@ int setRecordAtIndex(int iNodeId, int indexOfRecord, RECORD *record) {
 
 void getRecordOnBlockByPosition(BYTE *blockBuffer, int position, RECORD *record) {
     int positionOffset = position * RECORD_SIZE;
-    
+
     record->TypeVal = blockBuffer[0 + positionOffset];
     memcpy(record->name, blockBuffer + positionOffset + 1, 59);
     record->inodeNumber = getDoubleWord(blockBuffer + positionOffset + 60);
@@ -448,7 +389,7 @@ void setRecordOnBlockByPosition(BYTE *blockBuffer, int position, RECORD *record)
     int positionOffset = position * RECORD_SIZE;
     BYTE aux[4];
     dwordToBytes(record->inodeNumber, aux);
-    
+
     blockBuffer[0 + positionOffset] = record->TypeVal;
     memcpy( blockBuffer + positionOffset + 1, record->name, 59);
     memcpy(blockBuffer + positionOffset + 60,aux,4);
@@ -779,15 +720,15 @@ int createFile(char *filename, BYTE typeVal){
     INODE inode;
     if(getRecordByName(filename,&record) != ERROR_CODE_FILE_NOT_FOUND){
         return ERROR_CODE;
-
     }
+
     inode.blocksFileSize = 1;
     inode.bytesFileSize = 0;
     inode.dataPtr[0] = allocBlock();
     inode.dataPtr[1] = INVALID_PTR;
     inode.singleIndPtr = INVALID_PTR;
     inode.doubleIndPtr = INVALID_PTR;
-    
+
     if(inode.dataPtr[0] == ERROR_CODE){
         printf("[ERROR] error allocing inode");
         return ERROR_CODE;
@@ -808,7 +749,7 @@ int createFile(char *filename, BYTE typeVal){
 
     RECORD pathRecord;
     getRecordByName(filePath,&pathRecord);
-    
+
     if(insertAnRecordOnRecord(&pathRecord, &record) == ERROR_CODE){
         return ERROR_CODE;
     }
@@ -820,7 +761,7 @@ int createFile(char *filename, BYTE typeVal){
         parentDir.TypeVal = TYPEVAL_DIRETORIO;
         parentDir.inodeNumber = pathRecord.inodeNumber;
         insertAnRecordOnRecord(&writtenDir,&parentDir);
-        
+
         RECORD curDir;
         strcpy(curDir.name,".");
         curDir.TypeVal = TYPEVAL_DIRETORIO;
@@ -840,7 +781,7 @@ int openFile(char *filename, BYTE typeVal){
     int openFileIndex;
 
     RECORD record;
-    
+
 
     if(getRecordByName(filename, &record) != SUCCESS_CODE){
         return getRecordByName(filename, &record);
@@ -875,7 +816,7 @@ int deleteFile(char *filename, BYTE typeVal){
     INODE inode;
     RECORD path;
     RECORD record;
-    
+
     RECORD invalidRecord;
     invalidRecord.TypeVal=TYPEVAL_INVALIDO;
     invalidRecord.inodeNumber = INVALID_PTR;
@@ -884,10 +825,10 @@ int deleteFile(char *filename, BYTE typeVal){
     if(getRecordByName(filePath, &path) != SUCCESS_CODE){
         return ERROR_CODE;
     }
-    
+
     getInodeById(path.inodeNumber, &inode);
     int numOfRecordOnInode = (inode.bytesFileSize/sizeof(RECORD));
-    
+
     int i = 0;
     for(i = 0; i<numOfRecordOnInode; i++){
         getRecordByIndex(path.inodeNumber, i, &record);
@@ -996,7 +937,7 @@ int read2(FILE2 handle, char *buffer, int size) {
     int bufferOffset = 0;
     while (currentPointerOffset + size > ((currentBlockOffset + 1) * blockBufferSize)  ) {
         int partSize = (currentBlockOffset + 1) * blockBufferSize - currentPointerOffset ;
-        
+
         if (getBlock(openFiles[handle].openBlockId, blockBuffer) != SUCCESS_CODE) {
             printf("[ERROR] gettingblock %d on currentPointer: %d blockOffset: %d \n", openFiles[handle].openBlockId,
                    currentPointerOffset, currentBlockOffset);
@@ -1076,7 +1017,7 @@ int write2(FILE2 handle, char *buffer, int size) {
             printf("[ERROR] gettingblock %d on currentPointer: %d blockOffset: %d\n", openFiles[handle].openBlockId,
                    currentPointerOffset, currentBlockOffset);
         }
-        
+
         // printf("currentPointerOffset %d =partSize: %d  size: %d 1023:%d blockCurrentPointerOffset: %d blockOffset: %d\n",
         //     currentPointerOffset,partSize,size,blockCurrentPointerOffset + partSize,blockCurrentPointerOffset,currentBlockOffset );
 
@@ -1110,7 +1051,7 @@ int write2(FILE2 handle, char *buffer, int size) {
         currentBlockOffset++;
 
     }
-    
+
     getBlock(openFiles[handle].openBlockId, blockBuffer);
 
     memcpy(blockBuffer + blockCurrentPointerOffset, buffer + bufferOffset, size);
@@ -1146,7 +1087,7 @@ int seek2(FILE2 handle, DWORD offset) {
     INODE inode;
 
     getInodeById(openFiles[handle].inodeId, &inode);
-    
+
     if (offset == -1) {
         openFiles[handle].currentPointer = inode.bytesFileSize - 1;
         int currentBlockOffset = openFiles[handle].currentPointer / blockBufferSize;
@@ -1160,7 +1101,7 @@ int seek2(FILE2 handle, DWORD offset) {
 
     if (openFiles[handle].currentPointer + offset > inode.bytesFileSize) {
         offset = inode.bytesFileSize - openFiles[handle].currentPointer;
-    }    
+    }
 
     openFiles[handle].currentPointer += offset;
     int currentBlockOffset = openFiles[handle].currentPointer / blockBufferSize;
@@ -1169,9 +1110,8 @@ int seek2(FILE2 handle, DWORD offset) {
 }
 
 int mkdir2(char *pathname) {
-    return createFile(pathname,TYPEVAL_DIRETORIO);
+    return createFile(pathname, TYPEVAL_DIRETORIO);
 }
-
 
 int rmdir2(char *pathname) {
     if (initialized == FALSE) {
@@ -1191,17 +1131,30 @@ int rmdir2(char *pathname) {
     for(i=0;i<numOfRecordOnInode; i++){
         if(getRecordByIndex(dir.inodeNumber, i, &auxRecord) == SUCCESS_CODE){
             if(auxRecord.TypeVal != TYPEVAL_INVALIDO)
-                return ERROR_CODE;     
+                return ERROR_CODE;
         }
     }
     return deleteFile(pathname, TYPEVAL_DIRETORIO);
 }
 
+/*-----------------------------------------------------------------------------
+Fun��o:	Altera o diret�rio atual de trabalho (working directory).
+		O caminho desse diret�rio � informado no par�metro "pathname".
+		S�o considerados erros:
+			(a) qualquer situa��o que impe�a a realiza��o da opera��o
+			(b) n�o exist�ncia do "pathname" informado.
 
+Entra:	pathname -> caminho do novo diret�rio de trabalho.
+
+Sa�da:	Se a opera��o foi realizada com sucesso, a fun��o retorna "0" (zero).
+		Em caso de erro, ser� retornado um valor diferente de zero.
+-----------------------------------------------------------------------------*/
 int chdir2(char *pathname) {
     if (initialized == FALSE) {
         initialize();
     }
+
+
     return 0;
 }
 

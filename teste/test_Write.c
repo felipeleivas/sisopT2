@@ -127,7 +127,7 @@ int main() {
     if(open2("/pineapple") != ERROR_CODE_FILE_NOT_FOUND){
     	testSuccess = FALSE;
     	printf("SHOULD RETURN %d but return %d\n",ERROR_CODE_FILE_NOT_FOUND,open2("/pineapple"));
-    }   
+    }
     if(open2("/asassasa/pineapple") != ERROR_CODE_FILE_WRONG_PATH){
     	testSuccess = FALSE;
     	printf("SHOULD RETURN %d but return %d\n",ERROR_CODE_FILE_WRONG_PATH,open2("/pineapple"));
@@ -149,7 +149,7 @@ int main() {
     	printf("Should't close the file cause its not a file\n");
     }
 
-     
+     printAllStuff();
      FILE2 createdFile = create2("/dir1/teste");
      BYTE batata[10]= {'a','y','r','v','h','u','p','4','-','a'};
      int writenBytesOnTheCreatedFile = write2(createdFile,batata,10);
@@ -166,7 +166,8 @@ int main() {
      	printf("This file doens't exist in these path\n");
      }
      seek2(createdFile,-10);
-     
+
+
      BYTE batata2[10];
      int readedBytesOnTheCreatedFile = read2(createdFile,batata2,10);
 
@@ -177,27 +178,33 @@ int main() {
 
      if(close2(createdFile) != SUCCESS_CODE){
 		testSuccess = FALSE;
-     	printf("Should close the createdFile\n");     	
+     	printf("Should close the createdFile\n");
      }
 
      if(delete2("/dir1/teste") != SUCCESS_CODE){
 		testSuccess = FALSE;
-     	printf("Should delete the createdFile\n");     	
+     	printf("Should delete the createdFile\n");
      }
+
+     printAllStuff();
 
      if(delete2("/file3") != SUCCESS_CODE){
 		testSuccess = FALSE;
-     	printf("Should delete the file3\n");     	
+     	printf("Should delete the file3\n");
      }
      if(delete2("/dir1/../file3") != SUCCESS_CODE){
 		testSuccess = FALSE;
-     	printf("Should delete the file3\n");     	
+     	printf("Should delete the file3\n");
      }
-	
+
+     printAllStuff();
+
 	 if(delete2("/2dir1/teste") == SUCCESS_CODE){
 		testSuccess = FALSE;
-     	printf("Shouldn't be able to delete this file\n");     	
+     	printf("Shouldn't be able to delete this file\n");
      }
+
+     printAllStuff();
 
      if(open2("/dir1/teste") == SUCCESS_CODE){
      	testSuccess = FALSE;
@@ -209,12 +216,17 @@ int main() {
      	testSuccess = FALSE;
      	printf("Should be able to create the directory\n");
      }
+
+     printAllStuff();
      	printf("########CREATE FILE ON NEW directory##########################\n");
      	FILE2 newDirFile = create2("newDir/file1");
      if(newDirFile < 0){
 		testSuccess = FALSE;
      	printf("Should be able to create the file at newDir %d\n",newDirFile);
      }
+
+     printAllStuff();
+     
     if (testSuccess == TRUE)
         printf("CONGRATZ THE TEST PASSED\n");
     else
@@ -234,4 +246,4 @@ int countFreeBlocks() {
 
     }
     return count;
-}	
+}
