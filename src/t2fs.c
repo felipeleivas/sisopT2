@@ -182,19 +182,11 @@ void initialize() {
 
     // Inicializar o i-node root
     // rootInode = malloc(sizeof(INODE));
-    rootInode.blocksFileSize = 1;
-    rootInode.bytesFileSize = 128;
-    rootInode.dataPtr[0] = 0;
-    rootInode.dataPtr[1] = INVALID_PTR;
-    rootInode.singleIndPtr = INVALID_PTR;
-    rootInode.doubleIndPtr = INVALID_PTR;
+    getInodeById(0, &rootInode)
 
     // Inicializar o record root
     // rootRecord = malloc(sizeof(RECORD));
-    rootRecord.TypeVal = TYPEVAL_DIRETORIO;
-    strcpy(rootRecord.name, "/");
-    rootRecord.inodeNumber = rootInodeId;
-
+    getRecordByName("/", &rootRecord);
     actualDirectory = rootRecord;
 
     int i;
@@ -396,6 +388,7 @@ void setRecordOnBlockByPosition(BYTE *blockBuffer, int position, RECORD *record)
 }
 
 int getInodeById(int id, INODE *inode) {
+    printf("Inside getInodeById, id = %d", id);
     int relativePossitionOnInodeBlock = id % INODES_PER_SECTOR;
     int inodeSector = id / INODES_PER_SECTOR + iNodeAreaOffset;
     BYTE buffer[SECTOR_SIZE];
@@ -748,26 +741,31 @@ int createFile(char *filename, BYTE typeVal){
     record.inodeNumber = inodeId;
 
     RECORD pathRecord;
-    getRecordByName(filePath,&pathRecord);
+    getRecordByName(filePath, &pathRecord);
+    printf("\nConsegui pegar o record do path, o nome eh %s\n", pathRecord.name);
 
     if(insertAnRecordOnRecord(&pathRecord, &record) == ERROR_CODE){
+        printf("[ERROR] error in insertAnRecordOnRecord [1]\n");
         return ERROR_CODE;
     }
+
     if(typeVal == TYPEVAL_DIRETORIO){
-        RECORD writtenDir;
-        // printf("resultado do create: %d\n",getRecordByName(filename,&writtenDir));
+
         RECORD parentDir;
         strcpy(parentDir.name,"..");
         parentDir.TypeVal = TYPEVAL_DIRETORIO;
         parentDir.inodeNumber = pathRecord.inodeNumber;
-        insertAnRecordOnRecord(&writtenDir,&parentDir);
+        if(insertAnRecordOnRecord(&record,&parentDir) == ERROR_CODE) {
+          printf("[ERROR] error in insertAnRecordOnRecord [2]\n");
+        }
 
         RECORD curDir;
         strcpy(curDir.name,".");
         curDir.TypeVal = TYPEVAL_DIRETORIO;
         curDir.inodeNumber = inodeId;
-        insertAnRecordOnRecord(&writtenDir,&curDir);
-
+        if(insertAnRecordOnRecord(&record,&curDir) == ERROR_CODE) {
+          printf("[ERROR] error in insertAnRecordOnRecord [3]\n");
+        }
     }
 
     return SUCCESS_CODE;
