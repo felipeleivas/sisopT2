@@ -818,6 +818,7 @@ int deleteFile(char *filename, BYTE typeVal){
     RECORD invalidRecord;
     invalidRecord.TypeVal=TYPEVAL_INVALIDO;
     invalidRecord.inodeNumber = INVALID_PTR;
+    invalidRecord.name = "";
 
     getFileName(filename,onlyFilename,filePath);
     printf("Encontrei os nomes pra deletar, nome: %s, path: %s\n", onlyFilename, filePath);
@@ -837,12 +838,13 @@ int deleteFile(char *filename, BYTE typeVal){
         if(strcmp(record.name,onlyFilename) == 0 && record.TypeVal == typeVal){
           printf("\nEncontrei a entrada do arquivo que sera deletado: %s\n", record.name);
             INODE inodeAux;
-            getInodeById(record.inodeNumber, &inodeAux)
+            getInodeById(record.inodeNumber, &inodeAux);
             printf("Encontrei o inode do arquivo que sera deletado: %d\n", record.inodeNumber);
             truncate(0,0,record.inodeNumber);
             desallocBlock(inodeAux.dataPtr[0]);
             printf("Desaloquei os blocos do arquivo\n");
             setBitmap2(INODE_BITMAP, record.inodeNumber, FREE);
+
             if(setRecordAtIndex(path.inodeNumber,i,&invalidRecord) == SUCCESS_CODE){
                 printf("Setei a entrada %d como invalida\n", i);
                 return SUCCESS_CODE;
@@ -1128,9 +1130,16 @@ int rmdir2(char *pathname) {
     return 0;
     RECORD dir;
     RECORD auxRecord;
-    if(getRecordByName(pathname, &dir) != SUCCESS_CODE || dir.TypeVal != TYPEVAL_DIRETORIO){
+    if(getRecordByName(pathname, &dir) != SUCCESS_CODE) {
+        printf("[ERROR] Erro na rmdir2 , nao encontrei entrada");
         return ERROR_CODE;
     }
+
+    if(dir.TypeVal != TYPEVAL_DIRETORIO) {
+      printf("[ERROR] Erro na rmdir2, nao eh um diretorio");
+      return ERROR_CODE;
+    }
+
     INODE inode;
 
     getInodeById(dir.inodeNumber,&inode);
