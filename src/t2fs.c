@@ -101,17 +101,17 @@ void printAllStuff() {
 }
 
 void printStuff(RECORD *record) {
-  printf("-![%s]!-", record.name);
+  printf("-![%s]!-", record->name);
   INODE inode;
   RECORD recordAux;
-  inode = getInodeById(record->inodeNumber, &inode);
-  if(record.typeVal == TYPEVAL_DIRETORIO) {
+  getInodeById(record->inodeNumber, &inode);
+  if(record->TypeVal == TYPEVAL_DIRETORIO) {
     int numberOfRecords = inode.bytesFileSize / RECORD_SIZE;
     printf(" - Number of Records inside this file: %d -", numberOfRecords);
     int i = 0;
     for(i = 2; i < numberOfRecords; i++) {
       getRecordByIndex(record->inodeNumber, i, &recordAux);
-      if(recordAux.typeVal == TYPEVAL_DIRETORIO) {
+      if(recordAux.TypeVal == TYPEVAL_DIRETORIO) {
         printStuff(&recordAux);
       } else {
         printf("-[%s]-", recordAux.name);
