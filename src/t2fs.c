@@ -818,7 +818,7 @@ int deleteFile(char *filename, BYTE typeVal){
     RECORD invalidRecord;
     invalidRecord.TypeVal=TYPEVAL_INVALIDO;
     invalidRecord.inodeNumber = INVALID_PTR;
-    invalidRecord.name = "";
+    strcpy(invalidRecord.name, "");
 
     getFileName(filename,onlyFilename,filePath);
     printf("Encontrei os nomes pra deletar, nome: %s, path: %s\n", onlyFilename, filePath);
@@ -1127,7 +1127,6 @@ int rmdir2(char *pathname) {
     if (initialized == FALSE) {
         initialize();
     }
-    return 0;
     RECORD dir;
     RECORD auxRecord;
     if(getRecordByName(pathname, &dir) != SUCCESS_CODE) {
