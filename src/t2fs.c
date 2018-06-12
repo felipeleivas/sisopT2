@@ -36,8 +36,17 @@ typedef struct {
     int currentPointer;
 } OPEN_FILE;
 
+typedef struct {
+    int active;
+    int inodeId;
+    int openBlockId;
+    int currentPointer;
+    RECORD record;
+} OPEN_DIR;
+
 ////////////////// Global Variables
 OPEN_FILE openFiles[MAX_OPEN_FILES_SIMULTANEOUSLY];
+OPEN_DIR openDirectorys[MAX_OPEN_FILES_SIMULTANEOUSLY];
 int initialized = FALSE;
 SUPERBLOCK superBlock;
 // BYTE buffer[SECTOR_SIZE] = {0};
@@ -481,6 +490,16 @@ int getOpenFileStruct() {
     int i;
     for (i = 0; i < MAX_OPEN_FILES_SIMULTANEOUSLY; i++) {
         if (openFiles[i].active == FALSE) {
+            return i;
+        }
+    }
+    return ERROR_CODE;
+}
+
+int getOpenDirectoryStruct() {
+    int i;
+    for (i = 0; i < MAX_OPEN_FILES_SIMULTANEOUSLY; i++) {
+    if (openDirectorys[i].active == FALSE) {
             return i;
         }
     }
@@ -1179,7 +1198,7 @@ int chdir2(char *pathname) {
     RECORD newActualRecord;
     if(getRecordByName(pathname, &newActualRecord) == SUCCESS_CODE) {
         if(newActualRecord.TypeVal != TYPEVAL_DIRETORIO) {
-          return ERROR_CODE
+          return ERROR_CODE;
         } else {
           actualDirectory = newActualRecord;
           getFileName(pathname, directoryName, directoryPath);
@@ -1238,8 +1257,26 @@ DIR2 opendir2(char *pathname) {
     if (initialized == FALSE) {
         initialize();
     }
+    if (getOpenDirectoryStruct() == ERROR_CODE){
+        return ERROR_CODE;
+    }
 
-    return openFile(pathname, TYPEVAL_DIRETORIO);
+    RECORD record;
+    DIR2 handle = getOpenDirectoryStruct();
+    if (getRecordByName(pathname,&record) != SUCCESS_CODE){
+        return ERROR_CODE;
+    }
+    INODE inode;
+
+    getInodeById(record.inodeNumber, &inode);
+
+    openDirectorys[handle].active = TRUE;
+    openDirectorys[handle].inodeId = record.inodeNumber;
+    openDirectorys[handle].openBlockId = inode.dataPtr[0];
+    openDirectorys[handle].currentPointer = 0;
+    openDirectorys[handle].record = record;
+
+    return handle;
 }
 
 int readdir2(DIR2 handle, DIRENT2 *dentry) {
@@ -1253,9 +1290,9 @@ int readdir2(DIR2 handle, DIRENT2 *dentry) {
         return ERROR_CODE;
     }
 
-    RECORD record;
+    RECORD *record;
+    *record = openDirectorys[handle].record;
     DWORD p = openDirectorys[handle].currentPointer;
-    getRecordByIndex(openDirectorys[handle].inodeId,handle,record);
     if (record[p].TypeVal == TYPEVAL_INVALIDO) {
         return ERROR_CODE;
     }
