@@ -1204,12 +1204,35 @@ int readdir2(DIR2 handle, DIRENT2 *dentry) {
     if (initialized == FALSE) {
         initialize();
     }
-    return 0;
+    if (handle < 0 || handle >= MAX_OPEN_FILES_SIMULTANEOUSLY) {
+        return ERROR_CODE;
+    }
+    if (openDirectorys[handle].active == FALSE) {
+        return ERROR_CODE;
+    }
+
+    RECORD record;
+    DWORD p = openDirectorys[handle].currentPointer;
+    getRecordByIndex(openDirectorys[handle].inodeId,handle,record);
+    if (record[p].TypeVal == TYPEVAL_INVALIDO) {
+        return ERROR_CODE;
+    }
+    strcpy(dentry->name,record[p].name);
+    dentry->fileType = record[p].TypeVal;
+    openDirectorys[handle].currentPointer++;
+    return SUCCESS_CODE;
 }
 
 int closedir2(DIR2 handle) {
     if (initialized == FALSE) {
         initialize();
     }
-    return 0;
+    if (handle < 0 || handle >= MAX_OPEN_FILES_SIMULTANEOUSLY) {
+        return ERROR_CODE;
+    }
+    if (openDirectorys[handle].active == FALSE) {
+        return ERROR_CODE;
+    }
+    openDirectorys[handle].active = FALSE;
+    return SUCCESS_CODE;
 }
