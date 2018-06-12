@@ -38,6 +38,7 @@ typedef struct {
 
 ////////////////// Global Variables
 OPEN_FILE openFiles[MAX_OPEN_FILES_SIMULTANEOUSLY];
+OPEN_FILE openDirectorys[MAX_OPEN_FILES_SIMULTANEOUSLY];
 int initialized = FALSE;
 SUPERBLOCK superBlock;
 // BYTE buffer[SECTOR_SIZE] = {0};
@@ -73,6 +74,8 @@ int getBlock(int id, BYTE *blockBuffer);
 int getNextBlockId(int lastBlockIndex, INODE *inode);
 
 int getOpenFileStruct();
+
+int getOpenDirectoryStruct();
 
 void getRecordOnBlockByPosition(BYTE *blockBuffer, int position, RECORD *record);
 
@@ -479,6 +482,16 @@ int getOpenFileStruct() {
     int i;
     for (i = 0; i < MAX_OPEN_FILES_SIMULTANEOUSLY; i++) {
         if (openFiles[i].active == FALSE) {
+            return i;
+        }
+    }
+    return ERROR_CODE;
+}
+
+int getOpenDirectoryStruct() {
+    int i;
+    for (i = 0; i < MAX_OPEN_FILES_SIMULTANEOUSLY; i++) {
+    if (openDirectorys[i].active == FALSE) {
             return i;
         }
     }
@@ -1169,7 +1182,22 @@ DIR2 opendir2(char *pathname) {
     if (initialized == FALSE) {
         initialize();
     }
-    return 0;
+    if (getOpenDirectoryStruct() == ERROR_CODE){
+        return ERROR_CODE;
+    }
+
+    RECORD record;
+    DIR2 handle = getOpenDirectoryStruct();
+    getRecordByName(pathname,&record);
+    if (record == NULL){
+        return ERROR_CODE;
+    }
+    openDirectorys[handle].active = TRUE;
+    openDirectorys[handle].inodeId = record.inodeNumber;
+    openDirectorys[handle].openBlockId = inode.dataPtr[0];
+    openDirectorys[handle].currentPointer = 0;
+
+    return handle;
 }
 
 int readdir2(DIR2 handle, DIRENT2 *dentry) {
